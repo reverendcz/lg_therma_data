@@ -19,6 +19,80 @@ from pymodbus.client import ModbusTcpClient
 from pymodbus.exceptions import ModbusException
 
 
+# ANSI barevné kódy pro terminal output
+class Colors:
+    # Základní barvy
+    RED = '\033[91m'
+    GREEN = '\033[92m' 
+    YELLOW = '\033[93m'
+    BLUE = '\033[94m'
+    MAGENTA = '\033[95m'
+    CYAN = '\033[96m'
+    WHITE = '\033[97m'
+    
+    # Světlejší varianty
+    BRIGHT_RED = '\033[91;1m'
+    BRIGHT_GREEN = '\033[92;1m'
+    BRIGHT_YELLOW = '\033[93;1m'
+    BRIGHT_BLUE = '\033[94;1m'
+    BRIGHT_MAGENTA = '\033[95;1m'
+    BRIGHT_CYAN = '\033[96;1m'
+    
+    # Reset
+    RESET = '\033[0m'
+    BOLD = '\033[1m'
+
+
+def colorize_delta(delta_str: str, is_binary: bool = False, is_temperature: bool = False, 
+                  is_power: bool = False, is_flow: bool = False) -> str:
+    """
+    Přidá barevné zvýraznění k delta stringu podle typu hodnoty.
+    
+    Args:
+        delta_str: String s delta změnou
+        is_binary: True pro binární hodnoty (0→1)
+        is_temperature: True pro teploty
+        is_power: True pro energie/výkon  
+        is_flow: True pro průtok
+    
+    Returns:
+        Barevně zvýrazněný delta string
+    """
+    if not delta_str:
+        return delta_str
+        
+    if is_binary:
+        # Binární změny - zelená pro 0→1, červená pro 1→0
+        if "0→1" in delta_str:
+            return f"{Colors.BRIGHT_GREEN}{delta_str}{Colors.RESET}"
+        else:
+            return f"{Colors.BRIGHT_RED}{delta_str}{Colors.RESET}"
+    elif is_temperature:
+        # Teploty - červená pro nárůst, modrá pro pokles
+        if "🔥" in delta_str:
+            return f"{Colors.BRIGHT_RED}{delta_str}{Colors.RESET}"
+        else:
+            return f"{Colors.BRIGHT_BLUE}{delta_str}{Colors.RESET}"
+    elif is_power:
+        # Energie - žlutá pro nárůst, fialová pro pokles
+        if "⬆️" in delta_str:
+            return f"{Colors.BRIGHT_YELLOW}{delta_str}{Colors.RESET}"
+        else:
+            return f"{Colors.BRIGHT_MAGENTA}{delta_str}{Colors.RESET}"
+    elif is_flow:
+        # Průtok - cyan pro nárůst, bílá pro pokles
+        if "💪" in delta_str:
+            return f"{Colors.BRIGHT_CYAN}{delta_str}{Colors.RESET}"
+        else:
+            return f"{Colors.WHITE}{delta_str}{Colors.RESET}"
+    else:
+        # Obecné hodnoty - zelená pro nárůst, červená pro pokles
+        if "📈" in delta_str:
+            return f"{Colors.BRIGHT_GREEN}{delta_str}{Colors.RESET}"
+        else:
+            return f"{Colors.BRIGHT_RED}{delta_str}{Colors.RESET}"
+
+
 def convert_register_to_address(reg: int) -> int:
     """
     Převede "lidský" registr na 0-based address pro pymodbus.
@@ -150,7 +224,7 @@ def write_csv_header(csv_file: Path) -> None:
     """Zapíše hlavičku CSV souboru."""
     with open(csv_file, 'w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
-        writer.writerow(['ts', 'name', 'reg', 'address0', 'table', 'raw', 'scaled', 'unit', 'ok', 'error'])
+        writer.writerow(['ts', 'name', 'reg', 'address0', 'table', 'raw', 'scaled', 'unit', 'delta', 'previous_value', 'ok', 'error'])
 
 
 def write_csv_row(csv_file: Path, result: Dict) -> None:
@@ -168,12 +242,14 @@ def write_csv_row(csv_file: Path, result: Dict) -> None:
             result['raw'],
             result['scaled'],
             result['unit'],
+            result.get('delta', ''),
+            result.get('previous_value', ''),
             result['ok'],
             result['error']
         ])
 
 
-def scan_registers(config: Dict, csv_file: Path, once: bool = False, log_file: Path = None) -> None:
+def scan_registers(config: Dict, csv_file: Path, once: bool = False, interval: int = 60, log_file: Path = None) -> None:
     """
     Hlavní funkce pro skenování registrů.
     
@@ -181,6 +257,7 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False, log_file: P
         config: Načtená konfigurace
         csv_file: Cesta k CSV souboru
         once: Pokud True, provede pouze jeden průchod
+        interval: Interval mezi iteracemi v sekundách
         log_file: Cesta k log souboru (volitelné)
     """
     connection = config['connection']
@@ -240,17 +317,52 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False, log_file: P
                     
                     # Delta monitoring - výpočet změny oproti poslednímu stavu
                     delta_str = ""
+                    delta_value = ""
+                    previous_val = ""
                     reg_key = result['reg']
                     
                     if result['ok'] and reg_key in last_values:
                         current_val = result['scaled']
                         last_val = last_values[reg_key]
+                        previous_val = last_val
                         
                         if current_val != last_val:
-                            delta = current_val - last_val
-                            if abs(delta) >= 0.05:  # Zobraz i menší změny (0.05 místo 0.1)
-                                delta_sign = "↗" if delta > 0 else "↘"
-                                delta_str = f" {delta_sign} Δ{delta:+.1f}"
+                            # Detekuj typ hodnoty podle jednotky a rozsahu
+                            is_binary = (current_val in [0.0, 1.0] and last_val in [0.0, 1.0])
+                            is_temperature = "°C" in result['unit']
+                            is_flow = "l/min" in result['unit'] 
+                            is_power = ("kW" in result['unit'] or "W" in result['unit'])
+                            
+                            if is_binary:
+                                # Binární hodnoty: 0→1 nebo 1→0
+                                delta_str = f" 📈({last_val:.0f}→{current_val:.0f})"
+                                delta_value = f"{last_val:.0f}→{current_val:.0f}"
+                            else:
+                                # Číselné hodnoty s delta a směr
+                                delta = current_val - last_val
+                                if abs(delta) >= 0.01:  # Snížený práh pro citlivější detekci změn
+                                    if is_temperature:
+                                        delta_sign = "🔥" if delta > 0 else "❄️"
+                                        delta_str = f" {delta_sign}({delta:+.1f}°C)"
+                                        delta_value = f"{delta:+.1f}°C"
+                                    elif is_power:
+                                        delta_sign = "⬆️" if delta > 0 else "⬇️"
+                                        unit_suffix = "kW" if "kW" in result['unit'] else "W"
+                                        format_str = "{:+.1f}" if "kW" in result['unit'] else "{:+.0f}"
+                                        delta_str = f" {delta_sign}({format_str.format(delta)}{unit_suffix})"
+                                        delta_value = f"{format_str.format(delta)}{unit_suffix}"
+                                    elif is_flow:
+                                        delta_sign = "💪" if delta > 0 else "💧"
+                                        delta_str = f" {delta_sign}({delta:+.1f}l/min)"
+                                        delta_value = f"{delta:+.1f}l/min"
+                                    else:
+                                        delta_sign = "📈" if delta > 0 else "📉"
+                                        delta_str = f" {delta_sign}({delta:+.1f})"
+                                        delta_value = f"{delta:+.1f}"
+                    
+                    # Přidání delta informací do result pro CSV a log
+                    result['delta'] = delta_value
+                    result['previous_value'] = previous_val
                     
                     # Uložení aktuální hodnoty pro příští iteraci
                     if result['ok']:
@@ -258,17 +370,30 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False, log_file: P
                     
                     # Výpis na konzoli s delta informací
                     if result['ok']:
-                        output_line = f"✓ [{result['reg']:05d}] {result['name']}: {result['scaled']:.1f} {result['unit']}{delta_str} (raw: {result['raw']}, table: {result['table']})"
+                        # Detekuj typ hodnoty pro barevné zvýraznění
+                        is_binary = (result['scaled'] in [0.0, 1.0]) and delta_value and "→" in delta_value
+                        is_temperature = "°C" in result['unit']
+                        is_flow = "l/min" in result['unit']
+                        is_power = ("kW" in result['unit'] or "W" in result['unit'])
+                        
+                        # Aplikuj barevné zvýraznění na delta_str
+                        colored_delta_str = colorize_delta(delta_str, is_binary, is_temperature, is_power, is_flow)
+                        
+                        output_line = f"✓ [{result['reg']:05d}] {result['name']}: {result['scaled']:.1f} {result['unit']}{colored_delta_str} (raw: {result['raw']}, table: {result['table']})"
                         print(output_line)
+                        
+                        # Pro log soubor používáme nebarevnou verzi
+                        log_line = f"✓ [{result['reg']:05d}] {result['name']}: {result['scaled']:.1f} {result['unit']}{delta_str} (raw: {result['raw']}, table: {result['table']})"
                     else:
                         output_line = f"✗ [{result['reg']:05d}] {result['name']}: {result['error']}"
+                        log_line = output_line
                         print(output_line)
                     
-                    # Logování do souboru pokud je specifikováno
+                    # Logování do souboru pokud je specifikováno (bez barev)
                     if log_file:
                         with open(log_file, 'a', encoding='utf-8') as lf:
                             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                            lf.write(f"[{timestamp}] {output_line}\n")
+                            lf.write(f"[{timestamp}] {log_line}\n")
                     
                     # Zápis do CSV
                     write_csv_row(csv_file, result)
@@ -303,8 +428,13 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False, log_file: P
             if once:
                 break
             
-            # Čekání do další iterace není potřeba pokud máme delay_ms mezi registry
+            # Dokončení iterace
             print(f"Dokončena iterace {iteration}")
+            
+            # Čekání do další iterace
+            if interval > 0:
+                print(f"Čekám {interval} sekund do další iterace...")
+                time.sleep(interval)
             
     except KeyboardInterrupt:
         print("\nUkončuji na požádání uživatele...")
@@ -372,11 +502,7 @@ Příklady použití:
         scan_registers(config, args.out, once=True, log_file=args.log)
     else:
         print(f"Režim: Kontinuální s intervalem {args.interval}s")
-        while True:
-            scan_registers(config, args.out, once=True, log_file=args.log)
-            if args.interval > 0:
-                print(f"Čekám {args.interval} sekund do další iterace...")
-                time.sleep(args.interval)
+        scan_registers(config, args.out, once=False, interval=args.interval, log_file=args.log)
 
 
 if __name__ == '__main__':

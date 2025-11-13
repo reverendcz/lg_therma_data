@@ -1,150 +1,136 @@
-# LG Therma V Scanner
+# LG Therma V Modbus Monitor
 
-Nástroj pro čtení registrů LG Therma V přes Modbus/TCP, validaci (holding vs input), škálování a logování do CSV. Později rozšíříme o export do MariaDB/InfluxDB a dashboard v Grafaně.
+Pokročilý nástroj pro monitoring tepelného čerpadla LG Therma V přes Modbus RTU/TCP protokol.
 
-## Popis projektu
+## 📋 Popis projektu
 
-Tento projekt implementuje CLI nástroj `lgscan.py` pro komunikaci s tepelnými čerpadly LG Therma V přes Modbus/TCP protokol. Nástroj podporuje:
+Program pro čtení registrů pomocí RS485 TO POE ETH (B) s jednotkou **LG Therma V tepelné čerpadlo 9 kW** typové označení **LG HN091MR.NK5**. 
 
-- ✅ Čtení holding a input registrů
-- ✅ Automatickou detekci typu registru ("auto" mód)
-- ✅ Škálování hodnot podle konfigurace
-- ✅ Export dat do CSV formátu
-- ✅ Kontinuální monitorování s nastaveným intervalem
-- ✅ Jednorázové skenování
+⚠️ **Důležité upozornění:** Program byl vytvořen pouze pro čtení a ověření hodnot z registrů LG, může obsahovat nepřesné informace. Některé jednotky mají různé registry - co bylo vyčteno z konkrétní jednotky, to je implementováno.
 
-## Instalace
+## ✨ Klíčové funkce
+- **28 registrů** - Kompletní monitoring teplot, hydrauliky, energie a stavů
+- **Barevné delta monitoring** - Barevně odlišené změny s emoji indikátory  
+- **CSV export** - Excel-kompatibilní formát s delta sledováním
+- **Log soubory** - Detailní textové logy pro analýzu
+- **Sledování spotřeby** - Přesné měření elektrické energie
+- **Silent mode** - Monitoring nočního režimu
+- **Záložní topení** - Sledování elektrických topných těles
 
-### 1. Vytvořte virtuální prostředí
+## 🚀 Rychlý start
 
-```bash
-python -m venv .venv
-```
-
-### 2. Aktivujte virtuální prostředí
-
-**Windows:**
-```bash
-.venv\Scripts\activate
-```
-
-**Linux/Mac:**
-```bash
-source .venv/bin/activate
-```
-
-### 3. Nainstalujte závislosti
-
+### Instalace
 ```bash
 pip install -r requirements.txt
 ```
 
-## Konfigurace
-
-Upravte soubor `registers.yaml` podle vašeho nastavení:
-
-```yaml
-connection:
-  host: 192.168.100.199  # IP adresa vašeho Modbus/TCP převodníku
-  port: 502              # Port Modbus (obvykle 502)
-  unit: 1                # Unit ID (obvykle 1)
-  timeout: 2.0           # Timeout připojení
-  delay_ms: 120          # Prodleva mezi dotazy (ms)
-
-registers:
-  - name: Water inlet temp
-    reg: 30003
-    table: holding       # holding | input | auto
-    scale: 0.1
-    unit: "°C"
-```
-
-### SSH tunel (pro vzdálený přístup)
-
-Pokud běžíte mimo LAN, můžete použít SSH tunel:
-
+### Základní použití
 ```bash
-ssh -N -L 1502:192.168.100.199:502 <user>@<server>
+# Jednorázové skenování
+python lgscan.py --once
+
+# Kontinuální monitoring (interval 30 sekund)  
+python lgscan.py --interval 30
+
+# S CSV a log výstupem
+python lgscan.py --interval 30 --out monitoring.csv --log monitoring.log
 ```
 
-A v `registers.yaml` nastavte:
-```yaml
-connection:
-  host: 127.0.0.1
-  port: 1502
+### Konfigurace
+Hlavní konfigurační soubor: `registers.yaml` (28 registrů)
+
+## 📊 Příklad výstupu
+```
+✓ [30008] Room Temperature 🏠: 20.0 °C (raw: 200, table: input)
+✓ [30004] Heating Circuit OUTLET 🌡️: 27.8 °C 🔥(+0.3°C) (raw: 278, table: input)
+✓ [40018] Electrical Power Consumption ⚡: 1.1 kW ⬇️(-0.1kW) (raw: 305, table: input)
+✓ [10002] Water Pump Status 💧: 1.0 📈(0→1) (raw: 1, table: discrete)
 ```
 
-## Použití
+## 🎯 Klíčové registry
+- **30008** - Teplota místnosti
+- **30004** - Teplota výstup topného okruhu  
+- **40018** - Elektrická spotřeba (kW)
+- **10002** - Stav oběhové pumpy
+- **10004** - Stav kompresoru
+- **00003/10008** - Silent mode ovládání/stav
 
-### Jednorázové skenování
-```bash
-python lgscan.py --once --yaml registers.yaml --out scan.csv
+## 🔧 Požadavky
+- Python 3.7+
+- pymodbus>=3.0.0
+- PyYAML
+- LG Therma V s povoleným Modbus RTU
+
+## 📚 Dokumentace
+- `LG_Therma_V_Registry_Documentation.md` - Kompletní dokumentace všech 28 registrů
+- `docs/COMPLETION_SUMMARY.md` - Detaily implementace a vývoje systému
+- `docs/LG_ThermaV_Modbus.md` - Modbus komunikační reference a protokol
+
+## 🎨 Barevné delta monitoring
+
+Systém automaticky barevně odlišuje změny hodnot:
+- **🔥🔴 Zvýšení teploty** - červená s fire emoji
+- **❄️🔵 Snížení teploty** - modrá s snow emoji  
+- **⬆️🟡 Zvýšení příkonu** - žlutá s up arrow
+- **⬇️🟣 Snížení příkonu** - magenta s down arrow
+- **📈🟢 Binární 0→1** - zelená s chart emoji
+- **🔴 Binární 1→0** - červená
+- **💪🔵 Zvýšení průtoku** - cyan s muscle emoji
+
+## 📁 Struktura projektu
+
+```
+lg_therma/
+├── README.md                              # Tento soubor
+├── lgscan.py                              # Hlavní monitoring aplikace  
+├── registers.yaml                         # Produkční konfigurace (28 registrů)
+├── requirements.txt                       # Python závislosti
+├── LG_Therma_V_Registry_Documentation.md  # Kompletní dokumentace registrů
+├── .gitignore                            # Git ignore
+└── docs/                                 # Dokumentace a reference
+    ├── COMPLETION_SUMMARY.md              # Implementační detaily
+    └── LG_ThermaV_Modbus.md               # Modbus komunikační reference
 ```
 
-### Kontinuální monitorování s intervalem
-```bash
-python lgscan.py --interval 10 --yaml registers.yaml --out scan.csv
-```
+## 💻 CSV formát
 
-### Parametry
-- `--once` - Provede pouze jeden průchod
-- `--interval N` - Interval mezi průchody v sekundách (default: 60)
-- `--yaml FILE` - Cesta ke konfiguračnímu souboru (default: registers.yaml)
-- `--out FILE` - Výstupní CSV soubor (default: scan.csv)
-
-## Struktura projektu
-
-```
-lg_therma_data/
-├── README.md          # Tento soubor
-├── lgscan.py          # Hlavní skript
-├── registers.yaml     # Konfigurace registrů
-├── requirements.txt   # Python závislosti
-├── .gitignore         # Git ignore
-└── docs/              # Dokumentace a zdroje
-```
-
-## Výstupní CSV formát
-
-CSV soubor obsahuje následující sloupce:
-
-- `ts` - Timestamp (ISO format)
+CSV výstup obsahuje sloupce:
+- `ts` - Timestamp (ISO formát)
 - `name` - Název registru
-- `reg` - Číslo registru (30003, 40001, ...)
-- `address0` - 0-based adresa pro Modbus
-- `table` - Typ tabulky (holding/input)
-- `raw` - Surová hodnota z Modbus
+- `reg` - Číslo registru
+- `table` - Typ tabulky (holding/input/discrete/coils)
+- `raw` - Surová hodnota
 - `scaled` - Škálovaná hodnota
 - `unit` - Jednotka
-- `ok` - Úspěšnost čtení (True/False)
-- `error` - Chybová zpráva (pokud ok=False)
+- `delta` - Změna oproti předchozí hodnotě
+- `previous_value` - Předchozí hodnota
+- `ok` - Status čtení
 
-## Požadavky
+## 🎛️ Příklady použití
 
-- Python 3.10+
-- pymodbus==3.6.6
-- PyYAML==6.0.2
+### Základní monitoring
+```bash
+python lgscan.py --interval 30 --out thermal_data.csv
+```
 
-## Přispívání
+### Debug režim
+```bash
+python lgscan.py --once --yaml registers.yaml
+```
 
-1. Fork projektu
-2. Vytvořte feature branch (`git checkout -b feature/nova-funkce`)
-3. Commitněte změny (`git commit -am 'Přidána nová funkce'`)
-4. Push do branch (`git push origin feature/nova-funkce`)
-5. Vytvořte Pull Request
+### S log souborem
+```bash
+python lgscan.py --interval 60 --log thermal.log --out monitoring.csv
+```
 
-## Licence
+## 🔄 Aktualizace
 
-[Zde bude specifikována licence]
-
-## Autoři
-
-- [@reverendcz](https://github.com/reverendcz)
-
-## Verze
-
-- v0.1.0 - Inicializace projektu
+Systém je připraven pro produkční nasazení s kompletní sadou 28 registrů pokrývajících:
+- Teplotní senzory (6x)
+- Hydraulické parametry (2x) 
+- Energetická data (3x)
+- Stavy komponent (17x)
 
 ---
 
-*Tento README bude průběžně aktualizován podle vývoje projektu.*
+*Monitoring systém LG Therma V - připraven k produkčnímu nasazení*
