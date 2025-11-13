@@ -1,0 +1,113 @@
+connection:
+  host: 192.168.100.199
+  port: 502
+  unit: 1
+  timeout: 2.0
+  delay_ms: 100
+
+registers:
+  # ========================================
+  # TEPLOTY - KOMPLETNÍ PŘEHLED
+  # ========================================
+  
+  - name: "Room Temperature"
+    reg: 30008              # Pokojová teplota
+    table: auto
+    scale: 0.1              # 200 × 0.1 = 20.0°C ✅
+    unit: "°C"
+    
+  - name: "Target Heating Temperature"  
+    reg: 40003              # Požadovaná teplota topení
+    table: input
+    scale: 0.1              # 460 × 0.1 = 46.0°C ✅ (match 45°C)
+    unit: "°C"
+
+  - name: "Heating Circuit - Water INLET"
+    reg: 30003              # Vstup topného okruhu (zpětka)
+    table: holding
+    scale: 0.1              # 230 × 0.1 = 23.0°C
+    unit: "°C"
+
+  - name: "Heating Circuit - Water OUTLET"
+    reg: 30004              # Výstup topného okruhu 
+    table: auto
+    scale: 0.1              # 512 × 0.1 = 51.2°C ✅ (match 48°C)
+    unit: "°C"
+
+  - name: "DHW Tank Temperature (TUV)"
+    reg: 30006              # Teplota v zásobníku TUV
+    table: auto
+    scale: 0.1              # 429 × 0.1 = 42.9°C ✅ (match 42°C)
+    unit: "°C"
+
+  - name: "DHW Circuit - Inlet Temperature"
+    reg: 30005              # Vstup do TUV ohřevu
+    table: auto
+    scale: 0.1              # 500 × 0.1 = 50.0°C (match 45°C vstup)
+    unit: "°C"
+
+  - name: "Outdoor Air Temperature"
+    reg: 30013              # Venkovní teplota
+    table: auto
+    scale: 0.1              # 39 × 0.1 = 3.9°C ✅ (match 4°C)
+    unit: "°C"
+
+  # ========================================
+  # HYDRAULIKA
+  # ========================================
+
+  - name: "Water Flow Rate"
+    reg: 30009              # Průtok vody
+    table: holding
+    scale: 0.047            # 500 × 0.047 = 23.5 l/min ✅ (match 23.6 po optimalizaci)
+    unit: "l/min"
+
+  # ========================================
+  # ENERGETIKA
+  # ========================================
+
+  - name: "Current Power Consumption"
+    reg: 40010              # Spotřeba energie
+    table: input
+    scale: 1                # -649 × 1 = -649W
+    unit: "W"
+
+  - name: "DHW Target Temperature"
+    reg: 40009              # Cílová teplota TUV
+    table: input
+    scale: 0.1
+    unit: "°C"
+
+  # ========================================
+  # STATUSY SYSTÉMU
+  # ========================================
+
+  - name: "Water Pump Status"
+    reg: 10002              # Stav čerpadla (1=ON, 0=OFF)
+    table: discrete
+    scale: 1
+    unit: ""
+
+  - name: "Compressor Status"  
+    reg: 10004              # Stav kompresoru (1=ON, 0=OFF)
+    table: discrete
+    scale: 1
+    unit: ""
+
+  - name: "DHW Heating Status"
+    reg: 10006              # TUV ohřev (1=ON, 0=OFF) 
+    table: discrete
+    scale: 1
+    unit: ""
+
+  - name: "Error Status"
+    reg: 10014              # Chyby (0=OK, 1=ERROR)
+    table: discrete
+    scale: 1
+    unit: ""
+
+  - name: "DHW Booster Activation"
+    reg: 00002              # TUV booster (1=ACTIVE, 0=INACTIVE)
+    table: coils
+    scale: 1
+    unit: ""

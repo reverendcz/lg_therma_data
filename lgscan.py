@@ -78,6 +78,10 @@ def read_register_value(client: ModbusTcpClient, register_config: Dict, unit: in
             response = client.read_holding_registers(address, 1, slave=unit)
         elif table == 'input':
             response = client.read_input_registers(address, 1, slave=unit)
+        elif table == 'discrete':
+            response = client.read_discrete_inputs(address, count=1, slave=unit)
+        elif table == 'coils':
+            response = client.read_coils(address, count=1, slave=unit)
         elif table == 'auto':
             # Preferuj holding, pokud vrátí chybu nebo 0, zkus input
             try:
@@ -103,15 +107,22 @@ def read_register_value(client: ModbusTcpClient, register_config: Dict, unit: in
             result['error'] = f"Modbus error: {response}"
             return result
         
-        if not hasattr(response, 'registers') or len(response.registers) == 0:
-            result['error'] = "Žádná data v odpovědi"
-            return result
-        
-        raw_value = response.registers[0]
-        
-        # Převod na signed int16 pokud je hodnota > 32767
-        if raw_value > 32767:
-            raw_value = raw_value - 65536
+        # Pro discrete inputs a coils použij bits místo registers
+        if table in ['discrete', 'coils']:
+            if not hasattr(response, 'bits') or len(response.bits) == 0:
+                result['error'] = "Žádná data v odpovědi"
+                return result
+            raw_value = 1 if response.bits[0] else 0
+        else:
+            if not hasattr(response, 'registers') or len(response.registers) == 0:
+                result['error'] = "Žádná data v odpovědi"
+                return result
+            
+            raw_value = response.registers[0]
+            
+            # Převod na signed int16 pokud je hodnota > 32767
+            if raw_value > 32767:
+                raw_value = raw_value - 65536
         
         result['raw'] = raw_value
         result['scaled'] = raw_value * scale
@@ -162,7 +173,7 @@ def write_csv_row(csv_file: Path, result: Dict) -> None:
         ])
 
 
-def scan_registers(config: Dict, csv_file: Path, once: bool = False) -> None:
+def scan_registers(config: Dict, csv_file: Path, once: bool = False, log_file: Path = None) -> None:
     """
     Hlavní funkce pro skenování registrů.
     
@@ -170,6 +181,7 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False) -> None:
         config: Načtená konfigurace
         csv_file: Cesta k CSV souboru
         once: Pokud True, provede pouze jeden průchod
+        log_file: Cesta k log souboru (volitelné)
     """
     connection = config['connection']
     registers = config['registers']
@@ -186,17 +198,38 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False) -> None:
             print(f"Nelze se připojit k {connection['host']}:{connection['port']}", file=sys.stderr)
             sys.exit(2)
         
-        print(f"Připojen k {connection['host']}:{connection['port']}")
+        connection_msg = f"Připojen k {connection['host']}:{connection['port']}"
+        print(connection_msg)
+        
+        # Logování do souboru pokud je specifikováno
+        if log_file:
+            with open(log_file, 'a', encoding='utf-8') as lf:
+                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                lf.write(f"[{timestamp}] === LG THERMA V SCAN START ===\n")
+                lf.write(f"[{timestamp}] {connection_msg}\n")
         
         # Zkontroluj, zda existuje CSV soubor a případně vytvoř hlavičku
         if not csv_file.exists():
             write_csv_header(csv_file)
-            print(f"Vytvořen CSV soubor: {csv_file}")
+            csv_msg = f"Vytvořen CSV soubor: {csv_file}"
+            print(csv_msg)
+            
+            # Logování do souboru
+            if log_file:
+                with open(log_file, 'a', encoding='utf-8') as lf:
+                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    lf.write(f"[{timestamp}] {csv_msg}\n")
         
         iteration = 0
         while True:
             iteration += 1
-            print(f"\n--- Iterace {iteration} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---")
+            iteration_header = f"\n--- Iterace {iteration} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---"
+            print(iteration_header)
+            
+            # Logování hlavičky iterace do souboru
+            if log_file:
+                with open(log_file, 'a', encoding='utf-8') as lf:
+                    lf.write(f"{iteration_header}\n")
             
             for i, register_config in enumerate(registers):
                 try:
@@ -204,10 +237,17 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False) -> None:
                     
                     # Výpis na konzoli
                     if result['ok']:
-                        print(f"✓ {result['name']}: {result['scaled']:.1f} {result['unit']} "
-                              f"(raw: {result['raw']}, table: {result['table']})")
+                        output_line = f"✓ [{result['reg']:05d}] {result['name']}: {result['scaled']:.1f} {result['unit']} (raw: {result['raw']}, table: {result['table']})"
+                        print(output_line)
                     else:
-                        print(f"✗ {result['name']}: {result['error']}")
+                        output_line = f"✗ [{result['reg']:05d}] {result['name']}: {result['error']}"
+                        print(output_line)
+                    
+                    # Logování do souboru pokud je specifikováno
+                    if log_file:
+                        with open(log_file, 'a', encoding='utf-8') as lf:
+                            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            lf.write(f"[{timestamp}] {output_line}\n")
                     
                     # Zápis do CSV
                     write_csv_row(csv_file, result)
@@ -217,7 +257,14 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False) -> None:
                         time.sleep(connection['delay_ms'] / 1000.0)
                         
                 except Exception as e:
-                    print(f"✗ Chyba při čtení {register_config.get('name', 'N/A')}: {e}")
+                    error_line = f"✗ [{register_config.get('reg', 0):05d}] Chyba při čtení {register_config.get('name', 'N/A')}: {e}"
+                    print(error_line)
+                    
+                    # Logování chyby do souboru pokud je specifikováno
+                    if log_file:
+                        with open(log_file, 'a', encoding='utf-8') as lf:
+                            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            lf.write(f"[{timestamp}] {error_line}\n")
                     # Zapíš chybový záznam do CSV
                     error_result = {
                         'name': register_config.get('name', 'N/A'),
@@ -268,6 +315,8 @@ Příklady použití:
                        help='Cesta ke konfiguračnímu YAML souboru')
     parser.add_argument('--out', type=Path, default='scan.csv',
                        help='Výstupní CSV soubor')
+    parser.add_argument('--log', type=Path, default=None,
+                       help='Výstupní log soubor (volitelné)')
     
     args = parser.parse_args()
     
@@ -299,11 +348,11 @@ Příklady použití:
     # Spusť skenování
     if args.once:
         print("Režim: Jeden průchod")
-        scan_registers(config, args.out, once=True)
+        scan_registers(config, args.out, once=True, log_file=args.log)
     else:
         print(f"Režim: Kontinuální s intervalem {args.interval}s")
         while True:
-            scan_registers(config, args.out, once=True)
+            scan_registers(config, args.out, once=True, log_file=args.log)
             if args.interval > 0:
                 print(f"Čekám {args.interval} sekund do další iterace...")
                 time.sleep(args.interval)
