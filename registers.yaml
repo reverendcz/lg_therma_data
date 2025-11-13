@@ -1,0 +1,31 @@
+connection:
+  host: 192.168.100.199
+  port: 502
+  unit: 1
+  timeout: 2.0
+  delay_ms: 120
+
+registers:
+  - name: Water inlet temp
+    reg: 30003
+    table: holding
+    scale: 0.1
+    unit: "°C"
+
+  - name: Current Flow rate
+    reg: 30009
+    table: holding
+    scale: 0.1
+    unit: "l/min"
+
+  - name: Water outlet temp
+    reg: 30004
+    table: auto
+    scale: 0.1
+    unit: "°C"
+
+  - name: Outdoor Air temp
+    reg: 30013
+    table: auto
+    scale: 0.1
+    unit: "°C"
