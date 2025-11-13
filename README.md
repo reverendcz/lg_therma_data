@@ -63,6 +63,7 @@ Hlavní konfigurační soubor: `registers.yaml` (28 registrů)
 
 ## 📚 Dokumentace
 - `LG_Therma_V_Registry_Documentation.md` - Kompletní dokumentace všech 28 registrů
+- `CHANGELOG.md` - Historie verzí a změn projektu
 - `docs/COMPLETION_SUMMARY.md` - Detaily implementace a vývoje systému
 - `docs/LG_ThermaV_Modbus.md` - Modbus komunikační reference a protokol
 
@@ -82,6 +83,7 @@ Systém automaticky barevně odlišuje změny hodnot:
 ```
 lg_therma/
 ├── README.md                              # Tento soubor
+├── CHANGELOG.md                           # Historie verzí a změn
 ├── lgscan.py                              # Hlavní monitoring aplikace  
 ├── registers.yaml                         # Produkční konfigurace (28 registrů)
 ├── requirements.txt                       # Python závislosti
