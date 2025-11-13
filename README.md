@@ -90,8 +90,8 @@ lg_therma/
 ├── LG_Therma_V_Registry_Documentation.md  # Kompletní dokumentace registrů
 ├── .gitignore                            # Git ignore
 └── docs/                                 # Dokumentace a reference
-    ├── COMPLETION_SUMMARY.md              # Implementační detaily
     └── LG_ThermaV_Modbus.md               # Modbus komunikační reference
+    └── LG_Therma_V_Registry_Documentation.md # Detaily implementace a vývoje systému
 ```
 
 ## 💻 CSV formát
