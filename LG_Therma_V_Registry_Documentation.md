@@ -111,6 +111,53 @@ TUV prioritně udržováno na 45°C
 | **10007-10013** | Various Status Bits | Discrete | Neznámé statusy systému | 🟢 NÍZKÁ |
 | **00003-00010** | Control Coils | Coils | Ovládací příkazy | 🟢 NÍZKÁ |
 
+---
+
+## ❄️ **KRITICKÁ POZOROVÁNÍ - Defrosting cyklus (13.11.2025 21:48)**
+
+**🔥 ZACHYCEN KOMPLETNÍ DEFROSTING CYKLUS během aktivního topení na 28°C:**
+
+### 📊 **Sekvence událostí:**
+- **21:48:26** - `Defrosting Status` přepnul z 0 → **1** (aktivace)
+- **21:48-21:51** - Dramatický pokles výstupní teploty: 27.5°C → **17.4°C** (-10.1°C!)
+- **21:51-21:52** - Rychlé zotavování: 17.4°C → 21.1°C (+3.7°C za 1 min)
+- **Současně** - Teplota místnosti vzrostla z 19.5°C → 20.0°C (první viditelný efekt topení)
+
+### ✅ **Validované registry během defrosting:**
+- ✅ `10005 Defrosting Status` - Perfektní indikace 0/1
+- ✅ `30004 Outlet Temperature` - Přesné sledování poklesu/návratu
+- ✅ `10002 Water Pump` - Zůstal aktivní (1) během celého cyklu
+- ✅ `10004 Compressor` - Pokračoval v chodu během defrosting
+- ✅ `30008 Room Temperature` - Zachytil první nárůst od aktivace topení
+- ✅ `00001 Manual Defrost` - Hodnota 1 během auto-defrost (normální)
+
+**⚡ Klíčové pozorování:** Defrosting neovlivnil chod čerpadla ani kompresoru - systém pokračoval v dodávce tepla do topného okruhu i během odmrazování venkovní jednotky.
+
+### 🔧 **Aktualizované registry s potvrzením:**
+- `10005 Defrosting Status` → **✅ POTVRZENO: 0=ne, 1=ano**
+- `00001 Manual Defrost` → **✅ Hodnota 1 během defrosting (normální chování)**
+
+---
+
+## 🌡️ **Doporučení pro monitoring defrosting cyklů**
+
+### 🎯 **Kritické registry pro sledování:**
+1. **`10005 Defrosting Status`** - Primární indikátor aktivity
+2. **`30004 Outlet Temperature`** - Sledování poklesu/zotavování teplot
+3. **`00001 Manual Defrost`** - Může být aktivní i během auto-defrost
+4. **`30008 Room Temperature`** - Vliv na vytápění
+
+### 📈 **Typická sekvence defrosting:**
+- **Aktivace:** Defrosting Status 0→1, pokles outlet teploty
+- **Průběh:** Dramatický pokles (-6 až -10°C za 2-3 minuty)
+- **Zotavování:** Rychlý nárůst (+3-4°C za minutu)
+- **Návrat:** Defrosting Status 1→0, normalizace teplot
+
+### ⚙️ **Monitoring doporučení:**
+- **Interval:** 30s nebo méně pro zachycení rychlých změn
+- **Alerting:** Defrosting Status = 1 jako trigger pro detailed logging
+- **Analýza:** Sledovat frequency defrosting cyklů vs. venkovní teplota
+
 ### 🚨 **NEJDŮLEŽITĚJŠÍ CHYBĚJÍCÍ REGISTR**
 ```
 SYSTÉMOVÝ TLAK (30011): 
