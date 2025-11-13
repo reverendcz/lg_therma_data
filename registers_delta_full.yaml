@@ -1,0 +1,61 @@
+connection:
+  host: 192.168.100.199
+  port: 502
+  unit: 1
+  timeout: 2.0
+  delay_ms: 150
+
+registers:
+  # === TEPLOTY PRO DELTA MONITORING ===
+  
+  - name: "Room Temperature 🏠"
+    reg: 30008              
+    table: auto
+    scale: 0.1              
+    unit: "°C"
+    
+  - name: "Heating Circuit OUTLET 🌡️"
+    reg: 30004              
+    table: auto
+    scale: 0.1              
+    unit: "°C"
+
+  - name: "DHW Tank Temperature (TUV) 🚿"
+    reg: 30006              
+    table: auto
+    scale: 0.1              
+    unit: "°C"
+
+  - name: "Outdoor Air Temperature 🌤️"
+    reg: 30013              
+    table: auto
+    scale: 0.1              
+    unit: "°C"
+
+  # === HYDRAULIKA PRO DELTA MONITORING ===
+  
+  - name: "Water Flow Rate 💧"
+    reg: 30009              
+    table: auto
+    scale: 0.047            
+    unit: "l/min"
+
+  # === STATUSY PRO DELTA MONITORING ===
+  
+  - name: "Compressor Status 🔧"
+    reg: 10004              
+    table: discrete
+    scale: 1
+    unit: ""
+
+  - name: "Defrosting Status ❄️"
+    reg: 10005              
+    table: discrete
+    scale: 1
+    unit: ""
+
+  - name: "Water Pump Status 💧"
+    reg: 10002              
+    table: discrete
+    scale: 1
+    unit: ""

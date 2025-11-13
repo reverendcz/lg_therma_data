@@ -75,9 +75,9 @@ def read_register_value(client: ModbusTcpClient, register_config: Dict, unit: in
     
     try:
         if table == 'holding':
-            response = client.read_holding_registers(address, 1, slave=unit)
+            response = client.read_holding_registers(address, count=1, slave=unit)
         elif table == 'input':
-            response = client.read_input_registers(address, 1, slave=unit)
+            response = client.read_input_registers(address, count=1, slave=unit)
         elif table == 'discrete':
             response = client.read_discrete_inputs(address, count=1, slave=unit)
         elif table == 'coils':
@@ -85,10 +85,10 @@ def read_register_value(client: ModbusTcpClient, register_config: Dict, unit: in
         elif table == 'auto':
             # Preferuj holding, pokud vrátí chybu nebo 0, zkus input
             try:
-                response = client.read_holding_registers(address, 1, slave=unit)
+                response = client.read_holding_registers(address, count=1, slave=unit)
                 if response.isError() or (hasattr(response, 'registers') and response.registers[0] == 0):
                     # Zkus input registry
-                    response_input = client.read_input_registers(address, 1, slave=unit)
+                    response_input = client.read_input_registers(address, count=1, slave=unit)
                     if not response_input.isError() and hasattr(response_input, 'registers') and response_input.registers[0] != 0:
                         response = response_input
                         result['table'] = 'input'  # Aktualizuj skutečně použitou tabulku
@@ -98,7 +98,7 @@ def read_register_value(client: ModbusTcpClient, register_config: Dict, unit: in
                     result['table'] = 'holding'
             except Exception:
                 # Pokud holding selže, zkus input
-                response = client.read_input_registers(address, 1, slave=unit)
+                response = client.read_input_registers(address, count=1, slave=unit)
                 result['table'] = 'input'
         else:
             raise ValueError(f"Nepodporovaná tabulka: {table}")
@@ -186,6 +186,9 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False, log_file: P
     connection = config['connection']
     registers = config['registers']
     
+    # Dictionary pro sledování posledních hodnot (delta monitoring)
+    last_values = {}
+    
     # Připojení k Modbus
     client = ModbusTcpClient(
         host=connection['host'],
@@ -235,9 +238,27 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False, log_file: P
                 try:
                     result = read_register_value(client, register_config, connection['unit'])
                     
-                    # Výpis na konzoli
+                    # Delta monitoring - výpočet změny oproti poslednímu stavu
+                    delta_str = ""
+                    reg_key = result['reg']
+                    
+                    if result['ok'] and reg_key in last_values:
+                        current_val = result['scaled']
+                        last_val = last_values[reg_key]
+                        
+                        if current_val != last_val:
+                            delta = current_val - last_val
+                            if abs(delta) >= 0.05:  # Zobraz i menší změny (0.05 místo 0.1)
+                                delta_sign = "↗" if delta > 0 else "↘"
+                                delta_str = f" {delta_sign} Δ{delta:+.1f}"
+                    
+                    # Uložení aktuální hodnoty pro příští iteraci
                     if result['ok']:
-                        output_line = f"✓ [{result['reg']:05d}] {result['name']}: {result['scaled']:.1f} {result['unit']} (raw: {result['raw']}, table: {result['table']})"
+                        last_values[reg_key] = result['scaled']
+                    
+                    # Výpis na konzoli s delta informací
+                    if result['ok']:
+                        output_line = f"✓ [{result['reg']:05d}] {result['name']}: {result['scaled']:.1f} {result['unit']}{delta_str} (raw: {result['raw']}, table: {result['table']})"
                         print(output_line)
                     else:
                         output_line = f"✗ [{result['reg']:05d}] {result['name']}: {result['error']}"

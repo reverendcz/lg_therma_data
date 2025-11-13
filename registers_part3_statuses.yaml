@@ -1,0 +1,57 @@
+connection:
+  host: 192.168.100.199
+  port: 502
+  unit: 1
+  timeout: 2.0
+  delay_ms: 200
+
+registers:
+  # === ČÁST 3: STATUSY SYSTÉMU (8 registrů) ===
+  
+  - name: "Water Pump Status 💧"
+    reg: 10002              
+    table: discrete
+    scale: 1
+    unit: ""
+
+  - name: "Compressor Status 🔧"
+    reg: 10004              
+    table: discrete
+    scale: 1
+    unit: ""
+
+  - name: "Defrosting Status ❄️"
+    reg: 10005              
+    table: discrete
+    scale: 1
+    unit: ""
+
+  - name: "DHW Heating Status 🚿"
+    reg: 10006              
+    table: discrete
+    scale: 1
+    unit: ""
+
+  - name: "Error Status ⚠️"
+    reg: 10014              
+    table: discrete
+    scale: 1
+    unit: ""
+
+  - name: "Manual Defrost 🎛️"
+    reg: 00001              
+    table: coils
+    scale: 1
+    unit: ""
+
+  - name: "DHW Booster 🚀"
+    reg: 00002              
+    table: coils
+    scale: 1
+    unit: ""
+
+  - name: "System Status A 📊"
+    reg: 10015              
+    table: discrete
+    scale: 1
+    unit: ""

@@ -1,0 +1,45 @@
+connection:
+  host: 192.168.100.199
+  port: 502
+  unit: 1
+  timeout: 2.0
+  delay_ms: 250  # Delší delay pro stabilitu
+
+registers:
+  # === ČÁST 1: HLAVNÍ TEPLOTY (6 registrů) ===
+  
+  - name: "Room Temperature 🏠"
+    reg: 30008              
+    table: auto
+    scale: 0.1              
+    unit: "°C"
+    
+  - name: "Heating Circuit OUTLET 🌡️"
+    reg: 30004              
+    table: auto
+    scale: 0.1              
+    unit: "°C"
+
+  - name: "Heating Circuit INLET 🌡️"
+    reg: 30003              
+    table: auto
+    scale: 0.1              
+    unit: "°C"
+
+  - name: "DHW Tank Temperature 🚿"
+    reg: 30006              
+    table: auto
+    scale: 0.1              
+    unit: "°C"
+
+  - name: "DHW Circuit Inlet 🚿"
+    reg: 30005              
+    table: auto
+    scale: 0.1              
+    unit: "°C"
+
+  - name: "Outdoor Air Temperature 🌤️"
+    reg: 30013              
+    table: auto
+    scale: 0.1              
+    unit: "°C"
