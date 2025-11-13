@@ -58,11 +58,17 @@ registers:
     scale: 0.1              
     unit: "°C"
 
-  - name: "Current Power Consumption ⚡"
+  - name: "Electrical Power Consumption ⚡"  # SKUTEČNÁ elektrická spotřeba
+    reg: 40018              
+    table: input
+    scale: 0.0036           
+    unit: "kW"
+
+  - name: "Energy State Input"
     reg: 40010              
     table: input
     scale: 1                
-    unit: "W"
+    unit: "-"
 
   - name: "DHW Target Temperature 🚿"
     reg: 40009              

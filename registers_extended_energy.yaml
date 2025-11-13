@@ -1,0 +1,49 @@
+connection:
+  host: 192.168.100.199
+  port: 502
+  unit: 1
+  timeout: 3.0
+  delay_ms: 300
+
+registers:
+  # Rozšířený test energetických registrů
+  - reg: 40013
+    name: "Energy Register 40013"
+    scale: 1
+    table: "input"
+    unit: "W"
+  - reg: 40014
+    name: "Energy Register 40014"
+    scale: 0.1
+    table: "input"  
+    unit: "kW"
+  - reg: 40015
+    name: "Energy Register 40015"
+    scale: 0.1
+    table: "input"
+    unit: "kW"
+  - reg: 30013
+    name: "Holding Register 30013"
+    scale: 1
+    table: "holding"
+    unit: "W"
+  - reg: 30014
+    name: "Holding Register 30014"  
+    scale: 0.1
+    table: "holding"
+    unit: "kW"
+  - reg: 30015
+    name: "Holding Register 30015"
+    scale: 0.1
+    table: "holding" 
+    unit: "kW"
+  - reg: 40016
+    name: "Power Input Register 40016"
+    scale: 0.01
+    table: "input"
+    unit: "kW"
+  - reg: 40017
+    name: "Power Input Register 40017"
+    scale: 0.001
+    table: "input"
+    unit: "kW"

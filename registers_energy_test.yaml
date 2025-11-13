@@ -1,0 +1,28 @@
+registers:
+  - reg: 40010
+    name: "Energy State Input"
+    scale: 1
+    table: "input"
+    unit: ""
+  - reg: 40011
+    name: "Energy Consumption Total" 
+    scale: 1
+    table: "input"
+    unit: "kWh"
+  - reg: 40012
+    name: "COP Value"
+    scale: 0.1
+    table: "input"
+    unit: "COP"
+  - reg: 30012
+    name: "Heating Power Output"
+    scale: 1
+    table: "holding"
+    unit: "kW"
+
+connection:
+  host: "192.168.100.199"
+  port: 502
+  unit: 1
+  timeout: 3.0
+  delay_ms: 300

@@ -278,7 +278,7 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False, log_file: P
                         time.sleep(connection['delay_ms'] / 1000.0)
                         
                 except Exception as e:
-                    error_line = f"✗ [{register_config.get('reg', 0):05d}] Chyba při čtení {register_config.get('name', 'N/A')}: {e}"
+                    error_line = f"✗ [{register_config.get('reg', 0):05d}] Chyba při čtení {register_config.get('name', 'N/A')}: {e.__class__.__name__}: {e}"
                     print(error_line)
                     
                     # Logování chyby do souboru pokud je specifikováno

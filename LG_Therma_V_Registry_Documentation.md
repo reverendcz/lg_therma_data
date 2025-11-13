@@ -32,7 +32,8 @@
 
 | **Registr** | **Název** | **Table** | **Scale** | **Jednotka** | **Validace** | **Poznámka** |
 |-------------|-----------|-----------|-----------|-------------|-------------|-------------|
-| **40010** | Current Power Consumption | input | 1 | W | ✅ -649W | Záporné = spotřeba |
+| **40010** | Energy State Input | input | 1 | - | ✅ -649 | Stav energie, NENÍ spotřeba |
+| **40018** | **Electrical Power Consumption** | **input** | **0.0036** | **kW** | **✅ 1.5kW** | **SKUTEČNÁ elektr. spotřeba** |
 
 ### 🔧 **STATUSY SYSTÉMU**
 
@@ -259,6 +260,35 @@ modbus:
 ✅ **15 validovaných registrů** pokrývá 90% kritických parametrů  
 ✅ **Empirické korekce** aplikovány (průtok scale 0.047)  
 ✅ **Defrost monitoring** implementován pro zimní provoz  
+
+---
+
+---
+
+## ⚡ **KRITICKÉ ÚDAJE O ENERGII**
+
+### **🔍 Skutečná elektrická spotřeba identifikována!**
+
+**Registr 40018** - Electrical Power Consumption (Input Register)
+- **Scale:** 0.0036
+- **Unit:** kW  
+- **Raw values:** 420-430
+- **Scaled values:** 1.5-1.55 kW
+- **Status:** ✅ **VALIDOVANÝ** - odpovídá mobilní aplikaci LG ThinQ
+
+### **❌ Chyba v původní interpretaci**
+- **Registr 40010** byl chybně označen jako "Current Power Consumption"
+- **Skutečnost:** 40010 = "Energy State Input" (hodnota -649, jednotka neznámá)
+- **Mobilní aplikace** čerpá údaje z **registru 40018**, nikoli 40010
+
+### **🎯 Doporučení pro monitoring**
+```yaml
+- reg: 40018
+  name: "Electrical Power Consumption" 
+  scale: 0.0036
+  table: "input"
+  unit: "kW"
+```
 
 ---
 
