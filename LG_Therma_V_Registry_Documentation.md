@@ -48,8 +48,8 @@
 
 | **Registr** | **Název** | **Table** | **Scale** | **Jednotka** | **Validace** | **Poznámka** |
 |-------------|-----------|-----------|-----------|-------------|-------------|-------------|
-| **10005** | Defrosting Status | discrete | 1 | - | ✅ 0/1 | **0=normální, 1=defrost probíhá** |
-| **00001** | Manual Defrosting | coils | 1 | - | ✅ 0/1 | Manuální aktivace defrostu |
+| 10005 | Defrosting Status ❄️ | discrete | ✅ | ✅ **POTVRZENO: 0=ne, 1=ano** | Indikace odmrazovacího cyklu - **VALIDOVÁNO 13.11.2025** |
+| 00001 | Manual Defrost 🎛️ | coils | ✅ | ✅ **Hodnota 1 během defrosting** | Ruční spuštění odmrazování - **aktivní během auto-defrost** |
 | **10015** | System Status A | discrete | 1 | - | ✅ 1 | Neznámý systémový status |
 | **10016** | System Status B | discrete | 1 | - | ✅ 1 | Neznámý systémový status |
 
