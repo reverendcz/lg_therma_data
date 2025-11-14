@@ -65,18 +65,12 @@ registers:
     scale: 0.1
     unit: "°C"
 
-  # === ENERGIE A SPOTŘEBA (2 registry) ===
+  # === ENERGIE A SPOTŘEBA (1 registr) ===
   - name: "Electrical Power Consumption ⚡"  # SKUTEČNÁ elektrická spotřeba
     reg: 40018              
     table: input
     scale: 0.0036           
     unit: "kW"
-
-  - name: "Energy State Input (Legacy)"     # Původní registr pro srovnání
-    reg: 40010              
-    table: input
-    scale: 1                
-    unit: "-"
 
   # === SILENT MODE (2 NOVÉ registry) ===
   - name: "Silent Mode Setting 🔇"          # Ovládání tichého režimu

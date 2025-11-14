@@ -220,14 +220,84 @@ def load_config(config_file: Path) -> Dict:
         sys.exit(1)
 
 
+def calculate_cop(results: Dict[int, Dict]) -> Optional[float]:
+    """
+    Vypočítá COP (Coefficient of Performance) na základě aktuálních hodnot.
+    
+    COP = Tepelný výkon / Elektrický příkon
+    
+    Pro odhad tepelného výkonu používáme:
+    Q = ṁ × cp × ΔT
+    kde:
+    - ṁ = hmotnostní tok vody [kg/s] 
+    - cp = specifické teplo vody ≈ 4.18 kJ/(kg·K)
+    - ΔT = rozdíl teplot výstup - vstup [K]
+    
+    Args:
+        results: Dictionary s výsledky čtení registrů (klíč = reg number)
+    
+    Returns:
+        COP hodnota nebo None pokud nelze vypočítat
+    """
+    try:
+        # Potřebné registry pro COP výpočet
+        flow_rate_reg = 30009      # Průtok [l/min]
+        outlet_temp_reg = 30004    # Výstupní teplota [°C]  
+        inlet_temp_reg = 30003     # Vstupní teplota [°C]
+        power_reg = 40018          # Elektrický příkon [kW]
+        
+        # Kontrola dostupnosti všech potřebných hodnot
+        required_regs = [flow_rate_reg, outlet_temp_reg, inlet_temp_reg, power_reg]
+        for reg in required_regs:
+            if reg not in results or not results[reg]['ok']:
+                return None
+                
+        # Extrakce hodnot
+        flow_rate = results[flow_rate_reg]['scaled']      # l/min
+        outlet_temp = results[outlet_temp_reg]['scaled']  # °C
+        inlet_temp = results[inlet_temp_reg]['scaled']    # °C  
+        electrical_power = results[power_reg]['scaled']   # kW
+        
+        # Kontrola platnosti hodnot
+        if flow_rate <= 0 or electrical_power <= 0:
+            return None
+            
+        # Výpočet tepelného rozdílu
+        delta_temp = outlet_temp - inlet_temp  # K (Kelvin rozdíl = Celsius rozdíl)
+        
+        # Pokud není tepelný spád, COP není relevantní
+        if abs(delta_temp) < 0.1:
+            return None
+            
+        # Konverze průtoku na kg/s (1 l/min = 1 kg/min při 20°C)
+        mass_flow = flow_rate / 60.0  # kg/s
+        
+        # Tepelný výkon [kW]
+        # Q = ṁ × cp × ΔT
+        # cp vody ≈ 4.18 kJ/(kg·K) = 4.18 kW·s/(kg·K)
+        thermal_power = mass_flow * 4.18 * abs(delta_temp)  # kW
+        
+        # COP výpočet
+        cop = thermal_power / electrical_power
+        
+        # Rozumné limity pro COP (0.1 - 15.0)
+        if 0.1 <= cop <= 15.0:
+            return cop
+        else:
+            return None
+            
+    except Exception:
+        return None
+
+
 def write_csv_header(csv_file: Path) -> None:
     """Zapíše hlavičku CSV souboru."""
     with open(csv_file, 'w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
-        writer.writerow(['ts', 'name', 'reg', 'address0', 'table', 'raw', 'scaled', 'unit', 'delta', 'previous_value', 'ok', 'error'])
+        writer.writerow(['ts', 'name', 'reg', 'address0', 'table', 'raw', 'scaled', 'unit', 'delta', 'previous_value', 'ok', 'error', 'cop'])
 
 
-def write_csv_row(csv_file: Path, result: Dict) -> None:
+def write_csv_row(csv_file: Path, result: Dict, cop_value: Optional[float] = None) -> None:
     """Zapíše řádek do CSV souboru."""
     timestamp = datetime.now().isoformat()
     
@@ -245,7 +315,8 @@ def write_csv_row(csv_file: Path, result: Dict) -> None:
             result.get('delta', ''),
             result.get('previous_value', ''),
             result['ok'],
-            result['error']
+            result['error'],
+            f"{cop_value:.2f}" if cop_value is not None else ""
         ])
 
 
@@ -311,9 +382,16 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False, interval: i
                 with open(log_file, 'a', encoding='utf-8') as lf:
                     lf.write(f"{iteration_header}\n")
             
+            # Dictionary pro ukládání všech výsledků iterace (pro COP výpočet)
+            iteration_results = {}
+            
             for i, register_config in enumerate(registers):
                 try:
                     result = read_register_value(client, register_config, connection['unit'])
+                    
+                    # Uložení výsledku pro COP výpočet
+                    if result['ok']:
+                        iteration_results[result['reg']] = result
                     
                     # Delta monitoring - výpočet změny oproti poslednímu stavu
                     delta_str = ""
@@ -395,9 +473,6 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False, interval: i
                             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                             lf.write(f"[{timestamp}] {log_line}\n")
                     
-                    # Zápis do CSV
-                    write_csv_row(csv_file, result)
-                    
                     # Delay mezi dotazy (kromě posledního)
                     if i < len(registers) - 1:
                         time.sleep(connection['delay_ms'] / 1000.0)
@@ -411,6 +486,7 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False, interval: i
                         with open(log_file, 'a', encoding='utf-8') as lf:
                             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                             lf.write(f"[{timestamp}] {error_line}\n")
+                    
                     # Zapíš chybový záznam do CSV
                     error_result = {
                         'name': register_config.get('name', 'N/A'),
@@ -420,10 +496,38 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False, interval: i
                         'raw': None,
                         'scaled': None,
                         'unit': register_config.get('unit', ''),
+                        'delta': '',
+                        'previous_value': '',
                         'ok': False,
                         'error': str(e)
                     }
                     write_csv_row(csv_file, error_result)
+            
+            # COP výpočet na konci iterace
+            cop_value = calculate_cop(iteration_results)
+            
+            # Výpis COP informací
+            if cop_value is not None:
+                cop_output = f"🔥 COP (Coefficient of Performance): {cop_value:.2f}"
+                print(cop_output)
+                
+                # Logování COP do souboru
+                if log_file:
+                    with open(log_file, 'a', encoding='utf-8') as lf:
+                        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        lf.write(f"[{timestamp}] {cop_output}\n")
+            else:
+                cop_info = "ℹ️  COP: Nelze vypočítat (nedostatečné podmínky)"
+                print(cop_info)
+                
+                if log_file:
+                    with open(log_file, 'a', encoding='utf-8') as lf:
+                        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        lf.write(f"[{timestamp}] {cop_info}\n")
+            
+            # Zápis všech výsledků do CSV s COP hodnotou
+            for result in iteration_results.values():
+                write_csv_row(csv_file, result, cop_value)
             
             if once:
                 break

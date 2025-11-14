@@ -5,10 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-11-15
+
+### Removed
+- ❌ Register 40010 (Energy State Input) - removed due to unreliable data and undocumented behavior
+- 🗑️ Mystery register analysis tools and documentation
+- 🧹 Debug code specific to register 40010
+- 📁 Cleanup of temporary analysis files
+
+### Changed  
+- 📊 Reduced from 28 to 27 registers for improved reliability
+- 🔧 Simplified monitoring output without mystery values
+- 📝 Updated documentation to reflect current register count
+
 ## [1.0.0] - 2025-11-13
 
 ### Added
-- ✨ Complete monitoring of 28 registers for LG Therma V heat pump
+- ✨ Complete monitoring of 27 registers for LG Therma V heat pump
 - 🎨 Colored delta monitoring with emoji indicators in terminal output
 - 📊 CSV export with delta tracking and previous value comparison
 - 📝 Log file support for detailed analysis
