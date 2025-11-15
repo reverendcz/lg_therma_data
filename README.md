@@ -10,6 +10,7 @@ Program pro čtení registrů pomocí RS485 TO POE ETH (B) s jednotkou **LG Ther
 
 ## ✨ Klíčové funkce
 - **28 registrů** - Kompletní monitoring teplot, hydrauliky, energie a stavů včetně tlaku vody
+- **Dynamická tabulka** - Windows-kompatibilní real-time tabulkový display s barevným výstupem
 - **Barevné delta monitoring** - Barevně odlišené změny s emoji indikátory  
 - **CSV export** - Excel-kompatibilní formát s delta sledováním
 - **Log soubory** - Detailní textové logy pro analýzu
@@ -31,6 +32,9 @@ python lgscan.py --once
 
 # Kontinuální monitoring (interval 30 sekund)  
 python lgscan.py --interval 30
+
+# Dynamická tabulka v real-time (doporučeno)
+python lgscan.py --table --interval 10
 
 # S CSV a log výstupem
 python lgscan.py --interval 30 --out monitoring.csv --log monitoring.log
@@ -125,6 +129,10 @@ CSV výstup obsahuje sloupce:
 
 ### Základní monitoring
 ```bash
+# Tabulkový režim (nejpřehlednější)
+python lgscan.py --table --interval 10
+
+# Standardní monitoring
 python lgscan.py --interval 30 --out thermal_data.csv
 ```
 
@@ -135,7 +143,7 @@ python lgscan.py --once --yaml registers.yaml
 
 ### S log souborem
 ```bash
-python lgscan.py --interval 60 --log thermal.log --out monitoring.csv
+python lgscan.py --table --interval 60 --out monitoring.csv --log thermal.log
 ```
 
 ## 🔄 Aktualizace

@@ -8,6 +8,7 @@ validaci (holding vs input), škálování a logování do CSV.
 
 import argparse
 import csv
+import os
 import sys
 import time
 from datetime import datetime
@@ -17,6 +18,19 @@ from typing import Dict, List, Optional, Union
 import yaml
 from pymodbus.client import ModbusTcpClient
 from pymodbus.exceptions import ModbusException
+
+# Try to import colorama for Windows color support
+try:
+    from colorama import init, Fore, Back, Style
+    init(autoreset=True)  # Auto-reset colors
+    COLORAMA_AVAILABLE = True
+except ImportError:
+    COLORAMA_AVAILABLE = False
+    # Fallback - no colors
+    class Fore:
+        RED = GREEN = YELLOW = BLUE = MAGENTA = CYAN = WHITE = RESET = ""
+    class Style:
+        BRIGHT = DIM = RESET_ALL = ""
 
 
 # ANSI barevné kódy pro terminal output
@@ -550,6 +564,227 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False, interval: i
         print("Odpojeno od Modbus serveru")
 
 
+def clear_screen():
+    """Vymaže obrazovku"""
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+
+def get_color_for_value(register_data: Dict, value: Union[int, float, str]) -> tuple:
+    """Vrátí barvu podle hodnoty a typu registru"""
+    if not COLORAMA_AVAILABLE:
+        return "", ""
+    
+    unit = register_data.get('unit', '')
+    
+    if unit == "°C":
+        if isinstance(value, (int, float)):
+            if value > 25:
+                return Fore.RED, Style.BRIGHT
+            elif value < 10:
+                return Fore.BLUE, Style.BRIGHT
+            else:
+                return Fore.GREEN, ""
+    elif unit == "kW":
+        return Fore.YELLOW, Style.BRIGHT
+    elif isinstance(value, str) and value in ["ON", "1"]:
+        return Fore.GREEN, Style.BRIGHT
+    elif unit in ["l/min", "bar"]:
+        return Fore.CYAN, ""
+    
+    return Fore.WHITE, ""
+
+
+def draw_table_header(title: str, iteration: int):
+    """Vykreslí hlavičku tabulky"""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    full_title = f"🏠 {title} - Iteration {iteration}"
+    subtitle = f"📅 {timestamp} | 🖥️ Dynamic Table Mode"
+    
+    print(f"{Fore.CYAN}{Style.BRIGHT}{'═' * 85}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}{Style.BRIGHT}{full_title.center(85)}{Style.RESET_ALL}")
+    print(f"{Fore.MAGENTA}{subtitle.center(85)}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}{Style.BRIGHT}{'═' * 85}{Style.RESET_ALL}")
+    
+    header = f"{Fore.WHITE}{Style.BRIGHT}"
+    print(f"{header}┌────────┬─────────────────────────┬──────────┬────────┬──────┬────────────┐{Style.RESET_ALL}")
+    print(f"{header}│Register│ Parameter               │ Value    │ Unit   │ Raw  │ Status     │{Style.RESET_ALL}")
+    print(f"{header}├────────┼─────────────────────────┼──────────┼────────┼──────┼────────────┤{Style.RESET_ALL}")
+
+
+def draw_table_row(register_data: Dict, result: Dict):
+    """Vykreslí jeden řádek tabulky"""
+    reg_num = register_data.get('reg', 'N/A')
+    name = register_data.get('name', 'Unknown')
+    
+    # Zkrátit jméno pokud je příliš dlouhé
+    if len(name) > 23:
+        name = name[:20] + "..."
+    
+    if result['ok']:
+        scaled_value = result['scaled']
+        unit = register_data.get('unit', '')
+        raw_value = result['raw']
+        
+        color, style = get_color_for_value(register_data, scaled_value)
+        status = f"{Fore.GREEN}✅ OK{Style.RESET_ALL}"
+        
+        # Formátování hodnoty
+        if isinstance(scaled_value, float):
+            value_str = f"{scaled_value:.1f}"
+        else:
+            value_str = str(scaled_value)
+        
+        print(f"│{Fore.CYAN}{reg_num:>8}{Style.RESET_ALL}│ {Fore.WHITE}{name:<23}{Style.RESET_ALL} │ {color}{style}{value_str:>8}{Style.RESET_ALL} │ {Fore.YELLOW}{unit:<6}{Style.RESET_ALL} │ {Fore.MAGENTA}{raw_value:>4}{Style.RESET_ALL} │ {status:>10} │")
+    else:
+        error_msg = result.get('error', 'Unknown error')[:10]
+        status = f"{Fore.RED}❌ ERR{Style.RESET_ALL}"
+        print(f"│{Fore.CYAN}{reg_num:>8}{Style.RESET_ALL}│ {Fore.WHITE}{name:<23}{Style.RESET_ALL} │ {Fore.RED}{'ERROR':>8}{Style.RESET_ALL} │ {Fore.YELLOW}{'':>6}{Style.RESET_ALL} │ {Fore.MAGENTA}{'N/A':>4}{Style.RESET_ALL} │ {status:>10} │")
+
+
+def draw_table_footer(cop_value: Optional[float], total_registers: int, successful: int):
+    """Vykreslí patičku tabulky se statistikami"""
+    print(f"{Fore.WHITE}{Style.BRIGHT}└────────┴─────────────────────────┴──────────┴────────┴──────┴────────────┘{Style.RESET_ALL}")
+    
+    # Statistiky
+    success_rate = (successful / total_registers * 100) if total_registers > 0 else 0
+    cop_str = f"{cop_value:.2f}" if cop_value else "N/A"
+    
+    stats1 = f"🔥 COP: {cop_str} | 📊 Success: {successful}/{total_registers} ({success_rate:.1f}%)"
+    stats2 = f"🎛️ Controls: Ctrl+C to quit | Auto refresh every few seconds"
+    
+    print(f"{Fore.GREEN}{Style.BRIGHT}{'─' * 85}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}{stats1.center(85)}{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}{stats2.center(85)}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}{Style.BRIGHT}{'─' * 85}{Style.RESET_ALL}")
+    
+    if not COLORAMA_AVAILABLE:
+        print(f"\n{Fore.YELLOW}💡 Tip: Pro barvy nainstalujte colorama: pip install colorama{Style.RESET_ALL}")
+
+
+def table_monitor(config: Dict, interval: int, csv_file: Optional[Path] = None, 
+                 log_file: Optional[Path] = None):
+    """
+    Spustí monitoring v režimu dynamické tabulky.
+    """
+    print(f"🖥️ Spouštím Table Monitor...")
+    print(f"📡 Připojuji k {config['connection']['host']}:{config['connection']['port']}")
+    
+    if COLORAMA_AVAILABLE:
+        print(f"{Fore.GREEN}✅ Colorama je dostupná - budou zobrazeny barvy{Style.RESET_ALL}")
+    else:
+        print(f"{Fore.YELLOW}⚠️  Colorama není nainstalována - bez barev{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}💡 Pro barvy: pip install colorama{Style.RESET_ALL}")
+    
+    time.sleep(2)
+    
+    # Připojení k Modbus serveru
+    client = ModbusTcpClient(
+        host=config['connection']['host'],
+        port=config['connection']['port'],
+        timeout=config['connection']['timeout']
+    )
+    
+    if not client.connect():
+        print(f"{Fore.RED}❌ Připojení selhalo!{Style.RESET_ALL}")
+        return
+    
+    print(f"{Fore.GREEN}✅ Připojen k Modbus serveru{Style.RESET_ALL}")
+    time.sleep(1)
+    
+    iteration = 1
+    previous_values = {}
+    
+    try:
+        while True:
+            clear_screen()
+            
+            # Čtení všech registrů
+            results = []
+            successful = 0
+            
+            for register_data in config['registers']:
+                result = read_register_value(client, register_data, config['connection']['unit'])
+                results.append((register_data, result))
+                if result['ok']:
+                    successful += 1
+            
+            # Výpočet COP
+            cop_value = None
+            try:
+                # Najdi teploty a elektrický výkon
+                outlet_temp = None
+                inlet_temp = None
+                electrical_power = None
+                
+                for register_data, result in results:
+                    if result['ok'] and register_data.get('reg') == 30004:  # Outlet temp
+                        outlet_temp = result['scaled']
+                    elif result['ok'] and register_data.get('reg') == 30003:  # Inlet temp
+                        inlet_temp = result['scaled']
+                    elif result['ok'] and register_data.get('reg') == 40018:  # Electrical power
+                        electrical_power = result['scaled']
+                
+                if (outlet_temp is not None and inlet_temp is not None and 
+                    electrical_power is not None and electrical_power > 0.1):
+                    temp_delta = abs(outlet_temp - inlet_temp)
+                    if temp_delta >= 0.05:  # Minimální delta
+                        flow_rate = 27.5  # l/min (z kalibrace)
+                        thermal_power = flow_rate * 4.18 * temp_delta / 60  # kW
+                        cop_value = max(0.1, min(25.0, thermal_power / electrical_power))
+            except:
+                pass
+            
+            # Vykreslení tabulky
+            draw_table_header("LG Therma V Monitor", iteration)
+            
+            for register_data, result in results:
+                draw_table_row(register_data, result)
+            
+            draw_table_footer(cop_value, len(config['registers']), successful)
+            
+            # CSV zápis (pokud je požadován)
+            if csv_file:
+                # Zapíšeme hlavičku pouze při první iteraci
+                if iteration == 1:
+                    write_csv_header(csv_file)
+                
+                # Zapíšeme všechny řádky
+                for register_data, result in results:
+                    write_csv_row(csv_file, result, cop_value)
+            
+            # Log zápis (pokud je požadován)
+            if log_file:
+                write_results_to_log(results, log_file, iteration, cop_value)
+            
+            time.sleep(interval)
+            iteration += 1
+            
+    except KeyboardInterrupt:
+        clear_screen()
+        print(f"{Fore.GREEN}{Style.BRIGHT}✅ Table Monitor ukončen uživatelem!{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}👋 Děkujeme za použití LG Therma V Monitor!{Style.RESET_ALL}")
+    finally:
+        client.close()
+
+
+def write_results_to_log(results: List[tuple], log_file: Path, iteration: int, cop_value: Optional[float]):
+    """Zapíše výsledky do log souboru"""
+    with open(log_file, 'a', encoding='utf-8') as f:
+        f.write(f"\n--- Table Monitor Iteration {iteration} - {datetime.now().isoformat()} ---\n")
+        if cop_value:
+            f.write(f"COP: {cop_value:.2f}\n")
+        
+        for register_data, result in results:
+            reg_num = register_data.get('reg', 'N/A')
+            name = register_data.get('name', 'Unknown')
+            if result['ok']:
+                scaled_value = result['scaled']
+                unit = register_data.get('unit', '')
+                f.write(f"✓ [{reg_num}] {name}: {scaled_value} {unit}\n")
+            else:
+                f.write(f"✗ [{reg_num}] {name}: ERROR - {result.get('error', 'Unknown')}\n")
+
+
 def main():
     """Hlavní funkce programu."""
     parser = argparse.ArgumentParser(
@@ -566,6 +801,8 @@ Příklady použití:
                        help='Provede pouze jeden průchod')
     parser.add_argument('--interval', type=int, default=60,
                        help='Interval mezi průchody v sekundách (default: 60)')
+    parser.add_argument('--table', action='store_true',
+                       help='Zobrazí data v dynamické tabulce místo běžného výpisu')
     parser.add_argument('--yaml', type=Path, default='registers.yaml',
                        help='Cesta ke konfiguračnímu YAML souboru')
     parser.add_argument('--out', type=Path, default='scan.csv',
@@ -579,10 +816,10 @@ Příklady použití:
     if not args.yaml.exists():
         print(f"Konfigurační soubor neexistuje: {args.yaml}", file=sys.stderr)
         sys.exit(1)
-    
+
     # Načti konfiguraci
     config = load_config(args.yaml)
-    
+
     # Validace konfigurace
     required_keys = ['connection', 'registers']
     for key in required_keys:
@@ -601,7 +838,12 @@ Příklady použití:
         sys.exit(1)
     
     # Spusť skenování
-    if args.once:
+    if args.table:
+        print("Režim: Dynamická tabulka")
+        if args.once:
+            print("⚠️ --once je ignorován v table režimu")
+        table_monitor(config, args.interval, args.out, args.log)
+    elif args.once:
         print("Režim: Jeden průchod")
         scan_registers(config, args.out, once=True, log_file=args.log)
     else:

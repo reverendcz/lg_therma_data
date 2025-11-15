@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-11-15 - **DYNAMIC TABLE DISPLAY** 📊
+
+### Added
+- 📊 **Dynamic Table Mode** - Real-time table display with `--table` parameter
+- 🎨 **Windows-Compatible Colors** - Cross-platform color support via colorama
+- 🔄 **Auto-Refresh Display** - Configurable refresh intervals (default 5 seconds)
+- ✨ **Enhanced Visual Output** - Formatted table with borders, colors, and status indicators
+- 🎯 **Live COP Monitoring** - Real-time coefficient of performance calculation
+- 📈 **Success Rate Display** - Live monitoring of register read success rates
+- 🎛️ **User-Friendly Controls** - Clear Ctrl+C instructions and graceful shutdown
+
+### Fixed
+- 🔧 **Function Name Consistency** - Corrected `success` → `ok` field mappings
+- 💾 **Data Field Access** - Fixed `scaled_value` → `scaled` and `raw_value` → `raw` references
+- 🐛 **Windows Compatibility** - Resolved curses module availability issues
+- ⚡ **Error Handling** - Improved exception handling in table display mode
+
+### Enhanced
+- 📱 **User Experience** - Much more intuitive and visually appealing monitoring
+- 🎨 **Professional Output** - Clean tabular format suitable for production monitoring
+- 🖥️ **Terminal Optimization** - Optimized for various terminal sizes and Windows environments
+
 ## [1.3.0] - 2025-11-15 - **PRODUCTION CALIBRATION COMPLETE** 🎯
 
 ### Added
