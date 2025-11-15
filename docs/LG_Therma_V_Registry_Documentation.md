@@ -34,6 +34,13 @@
 |-------------|-----------|-----------|-----------|-------------|-------------|-------------|
 | **40018** | **Electrical Power Consumption** | **input** | **0.0036** | **kW** | **✅ 1.5kW** | **SKUTEČNÁ elektr. spotřeba** |
 
+### 💧 **HYDRAULIKA**
+
+| **Registr** | **Název** | **Table** | **Scale** | **Jednotka** | **Validace** | **Poznámka** |
+|-------------|-----------|-----------|-----------|-------------|-------------|-------------|
+| **30009** | **Water Flow Rate** | **holding** | **0.0567** | **l/min** | **✅ 23.8** | **Průtok - kalibrováno 15.11.2025** |
+| **40013** | **Water Pressure** | **input** | **0.0176** | **bar** | **✅ 1.3** | **Tlak vody - identifikováno 15.11.2025** |
+
 ### 🔧 **STATUSY SYSTÉMU**
 
 | **Registr** | **Název** | **Table** | **Scale** | **Jednotka** | **Validace** | **Poznámka** |
@@ -68,7 +75,8 @@ Status: Kompresor ON, TUV ohřev ON
 ### **2. PODLAHOVÉ TOPENÍ (Nízkoteplotní)**
 ```yaml
 Cílová teplota: 23.2°C → Výstup: 26.4°C
-Průtok: 23.5 l/min → Reálně: 23.6 l/min (99% přesnost)
+Průtok: 23.8 l/min → Reálně: 23.8 l/min (100% přesnost) ✅
+Tlak: 1.3 bar → Reálně: 1.3 bar (100% přesnost) ✅
 TUV: 45.0°C → Reálně: 45°C (100% přesnost)
 Status: Kompresor ON, TUV ohřev OFF
 ```

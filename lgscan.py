@@ -265,8 +265,8 @@ def calculate_cop(results: Dict[int, Dict]) -> Optional[float]:
         # Výpočet tepelného rozdílu
         delta_temp = outlet_temp - inlet_temp  # K (Kelvin rozdíl = Celsius rozdíl)
         
-        # Pokud není tepelný spád, COP není relevantní
-        if abs(delta_temp) < 0.1:
+        # Pokud není tepelný spád, COP není relevantní (sníženo z 0.1 na 0.05)
+        if abs(delta_temp) < 0.05:
             return None
             
         # Konverze průtoku na kg/s (1 l/min = 1 kg/min při 20°C)
@@ -280,8 +280,8 @@ def calculate_cop(results: Dict[int, Dict]) -> Optional[float]:
         # COP výpočet
         cop = thermal_power / electrical_power
         
-        # Rozumné limity pro COP (0.1 - 15.0)
-        if 0.1 <= cop <= 15.0:
+        # Rozumné limity pro COP (0.1 - 25.0) 
+        if 0.1 <= cop <= 25.0:
             return cop
         else:
             return None
@@ -517,7 +517,7 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False, interval: i
                         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                         lf.write(f"[{timestamp}] {cop_output}\n")
             else:
-                cop_info = "ℹ️  COP: Nelze vypočítat (nedostatečné podmínky)"
+                cop_info = "ℹ️  COP: Nedostatečný tepelný spád nebo chybné hodnoty"
                 print(cop_info)
                 
                 if log_file:

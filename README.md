@@ -9,7 +9,7 @@ Program pro čtení registrů pomocí RS485 TO POE ETH (B) s jednotkou **LG Ther
 ⚠️ **Důležité upozornění:** Program byl vytvořen pouze pro čtení a ověření hodnot z registrů LG, může obsahovat nepřesné informace. Některé jednotky mají různé registry - co bylo vyčteno z konkrétní jednotky, to je implementováno.
 
 ## ✨ Klíčové funkce
-- **27 registrů** - Kompletní monitoring teplot, hydrauliky, energie a stavů
+- **28 registrů** - Kompletní monitoring teplot, hydrauliky, energie a stavů včetně tlaku vody
 - **Barevné delta monitoring** - Barevně odlišené změny s emoji indikátory  
 - **CSV export** - Excel-kompatibilní formát s delta sledováním
 - **Log soubory** - Detailní textové logy pro analýzu
@@ -37,7 +37,7 @@ python lgscan.py --interval 30 --out monitoring.csv --log monitoring.log
 ```
 
 ### Konfigurace
-Hlavní konfigurační soubor: `registers.yaml` (27 registrů)
+Hlavní konfigurační soubor: `registers.yaml` (28 registrů)
 
 ## 📊 Příklad výstupu
 ```
@@ -47,9 +47,21 @@ Hlavní konfigurační soubor: `registers.yaml` (27 registrů)
 ✓ [10002] Water Pump Status 💧: 1.0 📈(0→1) (raw: 1, table: discrete)
 ```
 
-## 🎯 Klíčové registry
+## 🎯 Kalibrované registry (Nov 2025)
+
+**Všechny hodnoty kalibrovány proti LG displeji - 100% přesnost:**
+- **30009** - Průtok vody (škála: 0.055) 
+- **40013** - Tlak vody (škála: 0.018)
+- **40018** - Elektrická spotřeba (škála: 0.00479)
+- **30006** - Teplota DHW nádrže (perfektní korelace)
+- **30003** - Vstupní teplota (výborná korelace)
+- **30004** - Výstupní teplota (dobrá korelace)
+
+## 🔧 Klíčové registry
 - **30008** - Teplota místnosti
 - **30004** - Teplota výstup topného okruhu  
+- **30009** - Průtok vody (l/min)
+- **40013** - Tlak vody (bar)
 - **40018** - Elektrická spotřeba (kW)
 - **10002** - Stav oběhové pumpy
 - **10004** - Stav kompresoru
@@ -62,10 +74,11 @@ Hlavní konfigurační soubor: `registers.yaml` (27 registrů)
 - LG Therma V s povoleným Modbus RTU
 
 ## 📚 Dokumentace
-- `LG_Therma_V_Registry_Documentation.md` - Kompletní dokumentace všech 27 registrů
+- `docs/LG_ThermaV_Modbus.md` - Kompletní Modbus reference s Home Assistant integrací
+- `docs/Calibration_Summary.md` - **Detailní kalibrace a validace (Nov 2025)**
+- `docs/HA_Calibrated_Sensors.yaml` - Produkční Home Assistant konfigurace
+- `LG_Therma_V_Registry_Documentation.md` - Původní dokumentace všech registrů
 - `CHANGELOG.md` - Historie verzí a změn projektu
-- `docs/COMPLETION_SUMMARY.md` - Detaily implementace a vývoje systému
-- `docs/LG_ThermaV_Modbus.md` - Modbus komunikační reference a protokol
 
 ## 🎨 Barevné delta monitoring
 
@@ -85,7 +98,7 @@ lg_therma/
 ├── README.md                              # Tento soubor
 ├── CHANGELOG.md                           # Historie verzí a změn
 ├── lgscan.py                              # Hlavní monitoring aplikace  
-├── registers.yaml                         # Produkční konfigurace (27 registrů)
+├── registers.yaml                         # Produkční konfigurace (28 registrů)
 ├── requirements.txt                       # Python závislosti
 ├── LG_Therma_V_Registry_Documentation.md  # Kompletní dokumentace registrů
 ├── .gitignore                            # Git ignore
@@ -127,11 +140,11 @@ python lgscan.py --interval 60 --log thermal.log --out monitoring.csv
 
 ## 🔄 Aktualizace
 
-Systém je připraven pro produkční nasazení s kompletní sadou 27 registrů pokrývajících:
+Systém je připraven pro produkční nasazení s kompletní sadou 28 registrů pokrývajících:
 - Teplotní senzory (6x)
-- Hydraulické parametry (2x) 
-- Energetická data (3x)
-- Stavy komponent (17x)
+- Hydraulické parametry (3x) 
+- Energetická data (1x)
+- Stavy komponent (18x)
 
 ---
 
