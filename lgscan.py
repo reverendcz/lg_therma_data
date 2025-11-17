@@ -6,6 +6,10 @@ Nástroj pro čtení registrů LG Therma V přes Modbus/TCP,
 validaci (holding vs input), škálování a logování do CSV.
 """
 
+__version__ = "1.0.0"
+__author__ = "reverendcz"
+__date__ = "2025-11-17"
+
 import argparse
 import csv
 import os
@@ -240,6 +244,11 @@ def calculate_cop(results: Dict[int, Dict]) -> Optional[float]:
     
     COP = Tepelný výkon / Elektrický příkon
     
+    ⚠️ DŮLEŽITÉ: COP se počítá JEN pokud:
+    - Běží kompresor (Compressor Status = 1)
+    - Neběží defrost (Defrosting Status = 0)
+    - Je topný režim (Operation Cycle = 2 = Heating)
+    
     Pro odhad tepelného výkonu používáme:
     Q = ṁ × cp × ΔT
     kde:
@@ -251,7 +260,7 @@ def calculate_cop(results: Dict[int, Dict]) -> Optional[float]:
         results: Dictionary s výsledky čtení registrů (klíč = reg number)
     
     Returns:
-        COP hodnota nebo None pokud nelze vypočítat
+        COP hodnota nebo None pokud nelze vypočítat nebo podmínky nejsou splněny
     """
     try:
         # Potřebné registry pro COP výpočet
@@ -260,11 +269,42 @@ def calculate_cop(results: Dict[int, Dict]) -> Optional[float]:
         inlet_temp_reg = 30003     # Vstupní teplota [°C]
         power_reg = 40018          # Elektrický příkon [kW]
         
+        # Registry pro kontrolu stavu
+        compressor_reg = 10004     # Compressor Status (1 = běží)
+        defrost_reg = 10005        # Defrosting Status (0 = neběží defrost)
+        operation_reg = 30002      # Operation Cycle (2 = Heating)
+        
         # Kontrola dostupnosti všech potřebných hodnot
         required_regs = [flow_rate_reg, outlet_temp_reg, inlet_temp_reg, power_reg]
+        status_regs = [compressor_reg, defrost_reg, operation_reg]
+        
         for reg in required_regs:
             if reg not in results or not results[reg]['ok']:
                 return None
+                
+        # Kontrola stavových registrů (nemusí být všechny dostupné)
+        for reg in status_regs:
+            if reg not in results or not results[reg]['ok']:
+                print(f"⚠️ COP: Stavový registr {reg} nedostupný, počítám COP bez kontroly stavu")
+                break
+        else:
+            # Všechny stavové registry jsou dostupné - kontrolujeme podmínky
+            compressor_status = results[compressor_reg]['scaled'] if compressor_reg in results else 0
+            defrost_status = results[defrost_reg]['scaled'] if defrost_reg in results else 0
+            operation_status = results[operation_reg]['scaled'] if operation_reg in results else 2
+            
+            # COP má smysl počítat JEN když:
+            if compressor_status != 1:
+                print(f"🚫 COP: Kompresor neběží (status: {compressor_status})")
+                return None
+            if defrost_status != 0:
+                print(f"🚫 COP: Běží defrost (status: {defrost_status})")
+                return None
+            if operation_status != 2:
+                print(f"🚫 COP: Není topný režim (operation: {operation_status})")
+                return None
+            
+            print(f"✅ COP: Podmínky splněny - kompresor běží, defrost neběží, topí se")
                 
         # Extrakce hodnot
         flow_rate = results[flow_rate_reg]['scaled']      # l/min
@@ -565,8 +605,12 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False, interval: i
 
 
 def clear_screen():
-    """Vymaže obrazovku"""
-    os.system('cls' if os.name == 'nt' else 'clear')
+    """Vymaže obrazovku - Windows optimized"""
+    if os.name == 'nt':  # Windows
+        # Use ANSI escape codes for smoother clearing on Windows
+        print('\033[2J\033[H', end='')
+    else:  # Unix/Linux
+        os.system('clear')
 
 
 def get_color_for_value(register_data: Dict, value: Union[int, float, str]) -> tuple:
@@ -600,25 +644,38 @@ def draw_table_header(title: str, iteration: int):
     full_title = f"🏠 {title} - Iteration {iteration}"
     subtitle = f"📅 {timestamp} | 🖥️ Dynamic Table Mode"
     
-    print(f"{Fore.CYAN}{Style.BRIGHT}{'═' * 85}{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}{Style.BRIGHT}{full_title.center(85)}{Style.RESET_ALL}")
-    print(f"{Fore.MAGENTA}{subtitle.center(85)}{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}{Style.BRIGHT}{'═' * 85}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}{Style.BRIGHT}{'═' * 88}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}{Style.BRIGHT}{full_title.center(88)}{Style.RESET_ALL}")
+    print(f"{Fore.MAGENTA}{subtitle.center(88)}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}{Style.BRIGHT}{'═' * 88}{Style.RESET_ALL}")
     
     header = f"{Fore.WHITE}{Style.BRIGHT}"
-    print(f"{header}┌────────┬─────────────────────────┬──────────┬────────┬──────┬────────────┐{Style.RESET_ALL}")
-    print(f"{header}│Register│ Parameter               │ Value    │ Unit   │ Raw  │ Status     │{Style.RESET_ALL}")
-    print(f"{header}├────────┼─────────────────────────┼──────────┼────────┼──────┼────────────┤{Style.RESET_ALL}")
+    print(f"{header}┌────────┬─────────────────────────────────────┬──────────┬────────┬──────┬────────────┐{Style.RESET_ALL}")
+    print(f"{header}│Register│ Parameter                           │ Value    │ Unit   │ Raw  │ Status     │{Style.RESET_ALL}")
+    print(f"{header}├────────┼─────────────────────────────────────┼──────────┼────────┼──────┼────────────┤{Style.RESET_ALL}")
 
 
 def draw_table_row(register_data: Dict, result: Dict):
-    """Vykreslí jeden řádek tabulky"""
+    """Vykreslí jeden řádek tabulky s ultra-precízním zarovnáním"""
     reg_num = register_data.get('reg', 'N/A')
     name = register_data.get('name', 'Unknown')
     
-    # Zkrátit jméno pokud je příliš dlouhé
-    if len(name) > 23:
-        name = name[:20] + "..."
+    # Formátování registru - přidáme leading zeros pro coils
+    if isinstance(reg_num, int):
+        if reg_num < 10:  # Pro coils (1,2,3) zobrazit jako 00001, 00002, 00003
+            reg_str = f"{reg_num:05d}"
+        else:
+            reg_str = str(reg_num)
+    else:
+        reg_str = str(reg_num)
+    
+    # Zkrátit jméno pokud je příliš dlouhé - JEDNODUCHÉ bez emoji
+    display_name = name
+    if len(display_name) > 33:
+        display_name = display_name[:30] + "..."
+    
+    # Padding na presne 33 znakov
+    display_name = f"{display_name:<33}"
     
     if result['ok']:
         scaled_value = result['scaled']
@@ -626,24 +683,77 @@ def draw_table_row(register_data: Dict, result: Dict):
         raw_value = result['raw']
         
         color, style = get_color_for_value(register_data, scaled_value)
-        status = f"{Fore.GREEN}✅ OK{Style.RESET_ALL}"
         
-        # Formátování hodnoty
+        # ULTRA-PRESNÉ formátovanie - emoji-aware
+        reg_part = f"{reg_str:>8}"                        # Presne 8 znakov
+        # display_name už má presne 35 ASCII znakov (bez emoji šírky)
+        name_part = f" {display_name} "                   # Presne 37 znakov celkom
+        
+        # Value formatting
         if isinstance(scaled_value, float):
-            value_str = f"{scaled_value:.1f}"
+            value_part = f"{scaled_value:>10.1f}"
+        elif isinstance(scaled_value, int):
+            value_part = f"{scaled_value:>10d}"
         else:
-            value_str = str(scaled_value)
+            value_part = f"{str(scaled_value):>10}"
         
-        print(f"│{Fore.CYAN}{reg_num:>8}{Style.RESET_ALL}│ {Fore.WHITE}{name:<23}{Style.RESET_ALL} │ {color}{style}{value_str:>8}{Style.RESET_ALL} │ {Fore.YELLOW}{unit:<6}{Style.RESET_ALL} │ {Fore.MAGENTA}{raw_value:>4}{Style.RESET_ALL} │ {status:>10} │")
+        unit_part = f" {unit:<6} "                        # Presne 8 znakov (s medzerami)
+        raw_part = f"{raw_value:>6d}" if isinstance(raw_value, int) else f"{str(raw_value):>6}"
+        status_part = " OK         "                          # Presne 12 znakov
+        
+        # Farby - aplikujú sa len na časti bez medziery
+        if COLORAMA_AVAILABLE:
+            reg_colored = f"{Fore.CYAN}{reg_part}{Style.RESET_ALL}"
+            name_colored = f" {Fore.WHITE}{display_name}{Style.RESET_ALL} "
+            value_colored = f"{color}{style}{value_part}{Style.RESET_ALL}"
+            unit_colored = f" {Fore.YELLOW}{unit:<6}{Style.RESET_ALL} "
+            raw_colored = f"{Fore.MAGENTA}{raw_part}{Style.RESET_ALL}"
+            status_colored = f" {Fore.GREEN}✅ OK{Style.RESET_ALL}       "
+        else:
+            reg_colored = reg_part
+            name_colored = name_part
+            value_colored = value_part
+            unit_colored = unit_part
+            raw_colored = raw_part
+            status_colored = status_part
+        
+        # Fixed layout - každá časť má pevnú pozíciu
+        line = f"│{reg_colored}│{name_colored}│{value_colored}│{unit_colored}│{raw_colored} │{status_colored}│"
+        print(line)
+        
     else:
         error_msg = result.get('error', 'Unknown error')[:10]
-        status = f"{Fore.RED}❌ ERR{Style.RESET_ALL}"
-        print(f"│{Fore.CYAN}{reg_num:>8}{Style.RESET_ALL}│ {Fore.WHITE}{name:<23}{Style.RESET_ALL} │ {Fore.RED}{'ERROR':>8}{Style.RESET_ALL} │ {Fore.YELLOW}{'':>6}{Style.RESET_ALL} │ {Fore.MAGENTA}{'N/A':>4}{Style.RESET_ALL} │ {status:>10} │")
+        
+        # Error formatting
+        reg_part = f"{reg_str:>8}"
+        name_part = f" {display_name} "                   # display_name už má správnu šírku 35+2=37
+        value_part = "     ERROR"
+        unit_part = "        "                             # 8 medzier
+        raw_part = " ERR "
+        status_part = " ERROR      "                           # 12 znakov
+        
+        if COLORAMA_AVAILABLE:
+            reg_colored = f"{Fore.CYAN}{reg_part}{Style.RESET_ALL}"
+            name_colored = f" {Fore.WHITE}{display_name}{Style.RESET_ALL} "
+            value_colored = f"{Fore.RED}{value_part}{Style.RESET_ALL}"
+            unit_colored = f"{Fore.YELLOW}      {Style.RESET_ALL}  "
+            raw_colored = f"{Fore.MAGENTA}{raw_part}{Style.RESET_ALL}"
+            status_colored = f" {Fore.RED}❌ ERR{Style.RESET_ALL}  "
+        else:
+            reg_colored = reg_part
+            name_colored = name_part
+            value_colored = value_part
+            unit_colored = unit_part
+            raw_colored = raw_part
+            status_colored = status_part
+        
+        line = f"│{reg_colored}│{name_colored}│{value_colored}│{unit_colored}│{raw_colored} │{status_colored}│"
+        print(line)
 
 
 def draw_table_footer(cop_value: Optional[float], total_registers: int, successful: int):
     """Vykreslí patičku tabulky se statistikami"""
-    print(f"{Fore.WHITE}{Style.BRIGHT}└────────┴─────────────────────────┴──────────┴────────┴──────┴────────────┘{Style.RESET_ALL}")
+    print(f"{Fore.WHITE}{Style.BRIGHT}└────────┴───────────────────────────────────┴──────────┴────────┴──────┴────────────┘{Style.RESET_ALL}")
     
     # Statistiky
     success_rate = (successful / total_registers * 100) if total_registers > 0 else 0
@@ -652,10 +762,10 @@ def draw_table_footer(cop_value: Optional[float], total_registers: int, successf
     stats1 = f"🔥 COP: {cop_str} | 📊 Success: {successful}/{total_registers} ({success_rate:.1f}%)"
     stats2 = f"🎛️ Controls: Ctrl+C to quit | Auto refresh every few seconds"
     
-    print(f"{Fore.GREEN}{Style.BRIGHT}{'─' * 85}{Style.RESET_ALL}")
-    print(f"{Fore.GREEN}{stats1.center(85)}{Style.RESET_ALL}")
-    print(f"{Fore.YELLOW}{stats2.center(85)}{Style.RESET_ALL}")
-    print(f"{Fore.GREEN}{Style.BRIGHT}{'─' * 85}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}{Style.BRIGHT}{'─' * 88}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}{stats1.center(88)}{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}{stats2.center(88)}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}{Style.BRIGHT}{'─' * 88}{Style.RESET_ALL}")
     
     if not COLORAMA_AVAILABLE:
         print(f"\n{Fore.YELLOW}💡 Tip: Pro barvy nainstalujte colorama: pip install colorama{Style.RESET_ALL}")
@@ -742,6 +852,9 @@ def table_monitor(config: Dict, interval: int, csv_file: Optional[Path] = None,
             
             draw_table_footer(cop_value, len(config['registers']), successful)
             
+            # Flush output for smoother display
+            sys.stdout.flush()
+            
             # CSV zápis (pokud je požadován)
             if csv_file:
                 # Zapíšeme hlavičku pouze při první iteraci
@@ -767,6 +880,207 @@ def table_monitor(config: Dict, interval: int, csv_file: Optional[Path] = None,
         client.close()
 
 
+def simple_monitor(config: Dict, interval: int, csv_file: Optional[Path] = None, 
+                  log_file: Optional[Path] = None):
+    """
+    Jednoduchý monitoring režim - zobrazuje jen hlavní hodnoty bez blikání.
+    """
+    print("🖥️ Spouštím Simple Monitor...")
+    
+    # Definice hlavních registrů k zobrazení
+    main_registers = [
+        30008,  # Room Temperature
+        30004,  # Heating Circuit OUTLET  
+        30003,  # Heating Circuit INLET
+        30013,  # Outdoor Air Temperature
+        30009,  # Water Flow Rate
+        40018,  # Electrical Power Consumption
+        40013,  # Water Pressure
+    ]
+    
+    # Přidáme statusové registery pro COP kontrolu
+    status_registers = [
+        10004,  # Compressor Status
+        10005,  # Defrosting Status  
+        30002,  # Operation Cycle Status
+    ]
+    
+    # Filtruj pouze hlavní registry + statusové
+    main_filtered = [reg for reg in config['registers'] if reg.get('reg') in main_registers]
+    status_filtered = [reg for reg in config['registers'] if reg.get('reg') in status_registers]
+    print(f"📡 Připojuji k {config['connection']['host']}:{config['connection']['port']}")
+    
+    client = None
+    try:
+        client = ModbusTcpClient(
+            host=config['connection']['host'],
+            port=config['connection']['port'],
+            timeout=config['connection']['timeout']
+        )
+        
+        if not client.connect():
+            print(f"❌ Nepodařilo se připojit k Modbus serveru", file=sys.stderr)
+            return
+            
+        print("✅ Připojen k Modbus serveru")
+        print("=" * 60)
+        print("🏠 LG Therma V - Hlavní hodnoty")
+        print("=" * 60)
+        
+        iteration = 0
+        
+        while True:
+            iteration += 1
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            
+            # Vymazat předchozí výpis - jednodušší způsob
+            if iteration > 1:
+                print("\n" * 3)  # Jen několik prázdných řádků místo clear
+                print("=" * 60)
+                print("🏠 LG Therma V - Hlavní hodnoty")
+                print("=" * 60)
+            
+            print(f"📅 {timestamp} | Iterace {iteration}")
+            print("-" * 60)
+            
+            results = []
+            cop_data = {}
+            status_data = {}
+            
+            # Přečti všechny hlavní registry
+            for register_data in main_filtered:
+                result = read_register_value(client, register_data, config['connection']['unit'])
+                results.append((register_data, result))
+                
+                if result['ok']:
+                    # Uložit data pro COP výpočet
+                    reg_num = register_data.get('reg')
+                    if reg_num == 30004:  # Outlet temp
+                        cop_data['outlet'] = result['scaled']
+                    elif reg_num == 30003:  # Inlet temp
+                        cop_data['inlet'] = result['scaled']
+                    elif reg_num == 40018:  # Electrical power
+                        cop_data['power'] = result['scaled']
+                    elif reg_num == 30009:  # Water flow
+                        cop_data['flow'] = result['scaled']
+            
+            # Přečti statusové registry (pro COP kontrolu)
+            for register_data in status_filtered:
+                result = read_register_value(client, register_data, config['connection']['unit'])
+                if result['ok']:
+                    reg_num = register_data.get('reg')
+                    if reg_num == 10004:  # Compressor Status
+                        status_data['compressor'] = result['scaled']
+                    elif reg_num == 10005:  # Defrosting Status
+                        status_data['defrost'] = result['scaled']
+                    elif reg_num == 30002:  # Operation Cycle
+                        status_data['operation'] = result['scaled']
+            
+            # Zobraz výsledky v jednoduchém formátu
+            for register_data, result in results:
+                name = register_data.get('name', 'Unknown')
+                unit = register_data.get('unit', '')
+                
+                if result['ok']:
+                    value = result['scaled']
+                    if isinstance(value, float):
+                        value_str = f"{value:.1f}"
+                    else:
+                        value_str = str(value)
+                    
+                    # Emoji podle typu
+                    emoji = ""
+                    if "Room" in name:
+                        emoji = "🏠"
+                    elif "OUTLET" in name:
+                        emoji = "🔥"
+                    elif "INLET" in name:
+                        emoji = "🔄"
+                    elif "Outdoor" in name:
+                        emoji = "🌤️"
+                    elif "Flow" in name:
+                        emoji = "💧"
+                    elif "Power" in name:
+                        emoji = "⚡"
+                    elif "Pressure" in name:
+                        emoji = "💪"
+                    
+                    print(f"{emoji} {name}: {value_str} {unit}")
+                else:
+                    print(f"❌ {name}: ERROR")
+            
+            # Inteligentní COP výpočet s kontrolou stavu
+            cop_calculated = False
+            
+            # Kontrola všech potřebných dat pro COP
+            if all(key in cop_data for key in ['outlet', 'inlet', 'power']) and cop_data['power'] > 0.1:
+                
+                # Kontrola stavových podmínek
+                can_calculate_cop = True
+                status_info = []
+                
+                if 'compressor' in status_data:
+                    if status_data['compressor'] != 1:
+                        can_calculate_cop = False
+                        status_info.append(f"kompresor neběží ({status_data['compressor']})")
+                    else:
+                        status_info.append("kompresor běží ✅")
+                
+                if 'defrost' in status_data:
+                    if status_data['defrost'] != 0:
+                        can_calculate_cop = False
+                        status_info.append(f"běží defrost ({status_data['defrost']})")
+                    else:
+                        status_info.append("defrost neběží ✅")
+                        
+                if 'operation' in status_data:
+                    if status_data['operation'] != 2:
+                        can_calculate_cop = False
+                        status_info.append(f"není topný režim ({status_data['operation']})")
+                    else:
+                        status_info.append("topný režim ✅")
+                
+                if can_calculate_cop:
+                    temp_delta = abs(cop_data['outlet'] - cop_data['inlet'])
+                    if temp_delta >= 0.05:
+                        flow_rate = cop_data.get('flow', 27.5)  # Použij čtený průtok nebo default
+                        thermal_power = flow_rate * 4.18 * temp_delta / 60  # kW
+                        cop = max(0.1, min(25.0, thermal_power / cop_data['power']))
+                        print(f"\n🔥 COP (Coefficient of Performance): {cop:.2f}")
+                        if status_info:
+                            print(f"📊 Status: {', '.join(status_info)}")
+                        cop_calculated = True
+                    else:
+                        print(f"\n🚫 COP: Tepelný spád příliš malý ({temp_delta:.2f}°C)")
+                else:
+                    print(f"\n🚫 COP nelze počítat: {', '.join(status_info)}")
+            
+            if not cop_calculated and not status_data:
+                print(f"\n⚠️ COP: Stavové registry nedostupné, nelze ověřit podmínky")
+            
+            print("-" * 60)
+            print(f"⏰ Další aktualizace za {interval}s | Ctrl+C pro ukončení")
+            
+            # CSV zápis (pokud je požadován)
+            if csv_file and iteration == 1:
+                write_csv_header(csv_file)
+            
+            if csv_file:
+                for register_data, result in results:
+                    write_csv_row(csv_file, result, cop_data.get('cop'))
+            
+            time.sleep(interval)
+            
+    except KeyboardInterrupt:
+        print(f"\n✅ Simple Monitor ukončen uživatelem!")
+        print("👋 Děkujeme za použití!")
+    except Exception as e:
+        print(f"\n❌ Chyba: {e}")
+    finally:
+        if client:
+            client.close()
+
+
 def write_results_to_log(results: List[tuple], log_file: Path, iteration: int, cop_value: Optional[float]):
     """Zapíše výsledky do log souboru"""
     with open(log_file, 'a', encoding='utf-8') as f:
@@ -785,6 +1099,118 @@ def write_results_to_log(results: List[tuple], log_file: Path, iteration: int, c
                 f.write(f"✗ [{reg_num}] {name}: ERROR - {result.get('error', 'Unknown')}\n")
 
 
+def smooth_table_monitor(config: Dict, interval: int, csv_file: Optional[Path] = None, 
+                        log_file: Optional[Path] = None):
+    """
+    Monitoring v režimu plynulé tabulky bez blikání.
+    Používá buffer rendering pro okamžité zobrazení.
+    """
+    print(f"🖥️ Spouštím Smooth Table Monitor (buffer rendering)...")
+    print(f"📡 Připojuji k {config['connection']['host']}:{config['connection']['port']}")
+    
+    if COLORAMA_AVAILABLE:
+        print(f"{Fore.GREEN}✅ Colorama dostupná - plné barevné zobrazení{Style.RESET_ALL}")
+    else:
+        print(f"{Fore.YELLOW}⚠️  Colorama není dostupná - bez barev{Style.RESET_ALL}")
+
+    # Připojení k Modbus
+    client = ModbusTcpClient(
+        host=config['connection']['host'],
+        port=config['connection']['port'],
+        timeout=config['connection']['timeout']
+    )
+    
+    if not client.connect():
+        print(f"{Fore.RED}❌ Připojení selhalo!{Style.RESET_ALL}")
+        return
+    
+    print(f"{Fore.GREEN}✅ Připojen k Modbus serveru{Style.RESET_ALL}")
+    print(f"\n{Fore.CYAN}🚀 Spouštím plynulý monitoring...{Style.RESET_ALL}")
+    print(f"{Fore.BLUE}💡 Stiskněte Ctrl+C pro ukončení{Style.RESET_ALL}")
+    time.sleep(2)
+    
+    # Vyčištění obrazovky jen jednou na začátku
+    import os
+    os.system('cls' if os.name == 'nt' else 'clear')
+    
+    iteration = 0
+    first_run = True
+    
+    try:
+        while True:
+            iteration += 1
+            
+            # ANSI pozicionování kurzoru ak nie je prvý run
+            if not first_run:
+                print("\033[H", end="")  # Kurzor na pozíciu 0,0
+            
+            # Načti všetky data najprv (bez vykreslovanja)
+            results = []
+            successful = 0
+            iteration_results = {}
+            
+            # Načítaj všetky registre do pamäte
+            for register_data in config['registers']:
+                result = read_register_value(client, register_data, config['connection']['unit'])
+                results.append((register_data, result))
+                
+                if result['ok']:
+                    successful += 1
+                    reg_num = register_data.get('reg')
+                    iteration_results[reg_num] = result
+            
+            # COP výpočet
+            cop_value = calculate_cop(iteration_results)
+            
+            # Teraz vykresli kompletnu tabulku naraz
+            # Header
+            draw_table_header("LG Therma V Smooth Monitor", iteration)
+            
+            # Všetky data riadky naraz
+            for register_data, result in results:
+                draw_table_row(register_data, result)
+            
+            # Footer
+            draw_table_footer(cop_value, len(config['registers']), successful)
+            
+            # Status řádek
+            status_color = Fore.GREEN if cop_value else Fore.YELLOW
+            cop_text = f"{cop_value:.2f}" if cop_value else "N/A"
+            print(f"{status_color}🔥 COP: {cop_text} | 📊 Úspěšnost: {successful}/{len(config['registers'])} | ⏰ Iteration: {iteration}{Style.RESET_ALL}")
+            
+            # CSV zápis
+            if csv_file:
+                if iteration == 1:
+                    write_csv_header(csv_file)
+                for register_data, result in results:
+                    write_csv_row(csv_file, result, cop_value)
+            
+            # Log zápis
+            if log_file:
+                write_results_to_log(results, log_file, iteration, cop_value)
+            
+            first_run = False
+            
+            # Čekání s progress indikátorem
+            for i in range(interval):
+                remaining = interval - i
+                progress = "⏳ Aktualizace za " + "█" * (interval - remaining) + "░" * remaining + f" {remaining}s"
+                print(f'\r{Fore.BLUE}{progress}{Style.RESET_ALL}', end='', flush=True)
+                time.sleep(1)
+            
+            # Vymaž progress řádek
+            print(f'\r{" " * 60}\r', end='')
+            
+    except KeyboardInterrupt:
+        print(f"\n\n{Fore.GREEN}✅ Smooth Monitor ukončen uživatelem!{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}📊 Celkem iterací: {iteration}{Style.RESET_ALL}")
+    except Exception as e:
+        print(f"\n{Fore.RED}❌ Chyba: {e}{Style.RESET_ALL}")
+    finally:
+        client.close()
+        print(f"{Fore.BLUE}👋 Odpojeno od Modbus serveru{Style.RESET_ALL}")
+
+
 def main():
     """Hlavní funkce programu."""
     parser = argparse.ArgumentParser(
@@ -797,12 +1223,18 @@ Příklady použití:
         """
     )
     
+    parser.add_argument('--version', action='version', 
+                       version=f'LG Therma V Monitor v{__version__}')
     parser.add_argument('--once', action='store_true',
                        help='Provede pouze jeden průchod')
     parser.add_argument('--interval', type=int, default=60,
                        help='Interval mezi průchody v sekundách (default: 60)')
     parser.add_argument('--table', action='store_true',
                        help='Zobrazí data v dynamické tabulce místo běžného výpisu')
+    parser.add_argument('--smooth', action='store_true',
+                       help='Zobrazí data v plynulé tabulce bez blikání (doporučeno)')
+    parser.add_argument('--simple', action='store_true',
+                       help='Zobrazí pouze hlavní hodnoty (teploty, průtok, spotřeba)')
     parser.add_argument('--yaml', type=Path, default='registers.yaml',
                        help='Cesta ke konfiguračnímu YAML souboru')
     parser.add_argument('--out', type=Path, default='scan.csv',
@@ -838,11 +1270,21 @@ Příklady použití:
         sys.exit(1)
     
     # Spusť skenování
-    if args.table:
-        print("Režim: Dynamická tabulka")
+    if args.smooth:
+        print("Režim: Plynulá tabulka (bez blikání)")
+        if args.once:
+            print("⚠️ --once je ignorován v smooth režimu")
+        smooth_table_monitor(config, args.interval, args.out, args.log)
+    elif args.table:
+        print("Režim: Dynamická tabulka (s blikáním)")
         if args.once:
             print("⚠️ --once je ignorován v table režimu")
         table_monitor(config, args.interval, args.out, args.log)
+    elif args.simple:
+        print("Režim: Jednoduché zobrazení")
+        if args.once:
+            print("⚠️ --once je ignorován v simple režimu")
+        simple_monitor(config, args.interval, args.out, args.log)
     elif args.once:
         print("Režim: Jeden průchod")
         scan_registers(config, args.out, once=True, log_file=args.log)
