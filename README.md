@@ -172,6 +172,9 @@ Pro rychlé čtení jednotlivých registrů bez složitých závislostí:
 # Kontinuální monitoring
 .\modbus_tcp.ps1 192.168.100.199 30003 5 500
 ```
+# Čtení pomocí PowerShellu na přímo 
+$ip="192.168.100.199";$c=[Net.Sockets.TcpClient]::new($ip,502);$s=$c.GetStream();[byte[]]$q=0,1,0,0,0,6,1,4,0,3,0,1;$s.Write($q,0,$q.Length);$b=New-Object byte[] 256;$null=$s.Read($b,0,$b.Length);$s.Close();$c.Close();[BitConverter]::ToInt16(@($b[10],$b[9]),0)
+
 
 ### Python TCP nástroj (multiplatform)
 ```bash
