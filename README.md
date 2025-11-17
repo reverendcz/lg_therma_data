@@ -175,6 +175,39 @@ Pro rychlé čtení jednotlivých registrů bez složitých závislostí:
 # Čtení pomocí PowerShellu na přímo 
 $ip="192.168.100.199";$c=[Net.Sockets.TcpClient]::new($ip,502);$s=$c.GetStream();[byte[]]$q=0,1,0,0,0,6,1,4,0,3,0,1;$s.Write($q,0,$q.Length);$b=New-Object byte[] 256;$null=$s.Read($b,0,$b.Length);$s.Close();$c.Close();[BitConverter]::ToInt16(@($b[10],$b[9]),0)
 
+# Čtení pomocí PowerShellu na přímo - opakované čtení něco jako ping
+$ip = "192.168.100.199"
+
+while ($true) {
+    $c = [Net.Sockets.TcpClient]::new()
+    $c.ReceiveTimeout = 1000  # 1 s timeout pro čtení
+    $c.Connect($ip, 502)
+    $s = $c.GetStream()
+
+    # Read Input Registers (func 4), adresa 3 (30004), 1 registr
+    [byte[]]$q = 0,1,0,0,0,6,1,4,0,3,0,1
+    $s.Write($q, 0, $q.Length)
+
+    $b = New-Object byte[] 256
+    $null = $s.Read($b, 0, $b.Length)
+
+    $s.Close()
+    $c.Close()
+
+    $raw  = [BitConverter]::ToInt16(@($b[10], $b[9]), 0)
+    $temp = [Math]::Round($raw / 10.0, 1)
+
+    "{0}  raw={1}  temp={2} °C" -f (Get-Date -Format "HH:mm:ss"), $raw, $temp
+
+    Start-Sleep -Seconds 5   # interval čtení, klidně změň na 2, 10, ...
+}
+
+Výsledek:
+14:56:49  raw=232  temp=23,2 °C
+14:56:54  raw=232  temp=23,2 °C
+14:56:59  raw=232  temp=23,2 °C
+14:57:04  raw=232  temp=23,2 °C
+14:57:09  raw=232  temp=23,2 °C
 
 ### Python TCP nástroj (multiplatform)
 ```bash
