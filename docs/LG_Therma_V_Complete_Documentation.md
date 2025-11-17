@@ -112,7 +112,7 @@ Příklad: manuálový registr **30003** ⟹ HA `address: 2`
 
 **Průtok vody (registr 30009):**
 ```yaml
-scale_factor: 0.055  # Pro přesné l/min hodnoty
+scale_factor: 0.015  # Pro přesné l/min hodnoty
 ```
 
 **Tlak vody (registr 40013):**
@@ -299,6 +299,48 @@ mbpoll -m tcp -a 1 -r 2 -c 1 -t 0 IP_ADRESA      # čtení
 mbpoll -m tcp -a 1 -r 2 -1 IP_ADRESA             # zapnout
 mbpoll -m tcp -a 1 -r 2 -0 IP_ADRESA             # vypnout
 ```
+
+### PowerShell TCP (bez závislostí)
+
+Čistý PowerShell bez nutnosti Python/pymodbus:
+
+```powershell
+# Jednorázové čtení
+.\modbus_tcp.ps1 192.168.100.199 30004 1 1000
+
+# Kontinuální monitoring každé 5s
+.\modbus_tcp.ps1 192.168.100.199 30003 5 500
+
+# Rychlé čtení průtoku každé 2s  
+.\modbus_tcp.ps1 192.168.100.199 30009 2 1000
+```
+
+**Výhody čistého PowerShell řešení:**
+- ✅ Žádné závislosti na Python/knihovnách
+- ✅ Přímý TCP přístup 
+- ✅ Rychlé a lehké
+- ✅ Funkční na jakémkoliv Windows s PowerShell
+
+### Python TCP (bez závislostí)
+
+Čistý Python socket bez nutnosti pymodbus:
+
+```python
+# Jednorázové čtení
+python modbus_tcp.py 192.168.100.199 30004 0 1000
+
+# Kontinuální monitoring každé 5s
+python modbus_tcp.py 192.168.100.199 30003 5 500
+
+# Rychlé čtení elektrického výkonu každé 3s
+python modbus_tcp.py 192.168.100.199 40018 3 1000
+```
+
+**Výhody čistého Python řešení:**
+- ✅ Žádné externí knihovny - jen standardní Python
+- ✅ Přímý TCP socket přístup
+- ✅ Multiplatformní (Windows/Linux/macOS)
+- ✅ Rychlé připojení a odpojení
 
 ## Řešení problémů
 

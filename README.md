@@ -1,8 +1,9 @@
 # LG Therma V Monitor v1.0.0
+Verze testované jednotky LG model HU091MR.U44
 
-🏠 **Profesionální monitoring tool pro LG Therma V tepelná čerpadla**
+🏠 **Komunitní monitoring tool pro LG Therma V tepelná čerpadla**
 
-Kompletní Python nástroj pro sledování a analýzu tepelného čerpadla LG Therma V pomocí Modbus/TCP protokolu. Poskytuje přesné real-time monitoring všech klíčových parametrů se 100% kalibrací.
+Kompletní Python nástroj pro sledování a analýzu tepelného čerpadla LG Therma V pomocí Modbus/TCP protokolu. Poskytuje přesné real-time monitoring všech klíčových parametrů s možnou kalibrací.
 
 ## 🚀 Rychlý start
 
@@ -141,9 +142,8 @@ COP = Tepelný výkon / Elektrická spotřeba
 
 ### Python závislosti
 ```
-pymodbus==3.0.2
-pyserial==3.5
-pyYAML==6.0.1
+pymodbus==3.6.6
+PyYAML==6.0.2
 colorama==0.4.6
 ```
 
@@ -152,11 +152,41 @@ colorama==0.4.6
 ```
 lg_therma/
 ├── lgscan.py           # Hlavní monitoring program
+├── modbus_tcp.py       # Python TCP nástroj (bez závislostí)
+├── modbus_tcp.ps1      # PowerShell TCP nástroj (Windows)
 ├── registers.yaml      # Konfigurace registrů
 ├── requirements.txt    # Python závislosti
 ├── README.md          # Tento soubor
 └── docs/              # Dokumentace
 ```
+
+## 🔧 Jednoduché TCP nástroje
+
+Pro rychlé čtení jednotlivých registrů bez složitých závislostí:
+
+### PowerShell TCP nástroj (Windows)
+```powershell
+# Jednorázové čtení
+.\modbus_tcp.ps1 192.168.100.199 30004 1 1000
+
+# Kontinuální monitoring
+.\modbus_tcp.ps1 192.168.100.199 30003 5 500
+```
+
+### Python TCP nástroj (multiplatform)
+```bash
+# Jednorázové čtení
+python modbus_tcp.py 192.168.100.199 30004 0 1000
+
+# Kontinuální monitoring
+python modbus_tcp.py 192.168.100.199 40018 3 1000
+```
+
+**Výhody TCP nástrojů:**
+- ✅ Žádné externí závislosti
+- ✅ Přímý TCP socket přístup
+- ✅ Rychlé připojení/odpojení
+- ✅ Jednoduché použití
 
 ## 🎯 Výsledky
 
@@ -169,11 +199,6 @@ lg_therma/
 - ✅ Profesionálním vzhledem
 - ✅ Trojitým zobrazovacím režimem
 - ✅ Flexibilní konfigurací
-
-## 📞 Podpora
-
-Projekt je kompletně dokončen a otestován na LG Therma V tepelném čerpadle.
-Všechny funkce fungují spolehlivě se 100% úspěšností čtení registrů.
 
 ---
 
