@@ -50,13 +50,15 @@ registers:
   - name: "Water Flow Rate"
     reg: 30009              
     table: auto
-    scale: 0.055            # Real-world kalibrace: 24.7-28.6 l/min @ 500 raw (DHW režim)
+    #scale: 0.055            # Real-world kalibrace: 24.7-28.6 l/min @ 500 raw (DHW režim)
+    scale: 0.1            
     unit: "l/min"
 
   - name: "Water Pressure"
     reg: 40013              
     table: auto
-    scale: 0.018            # Real-world kalibrace: 1.2-1.4 bar @ 70-74 raw
+    #scale: 0.018            # Real-world kalibrace: 1.2-1.4 bar @ 70-74 raw
+    scale: 0.01            
     unit: "bar"
 
   - name: "Target Heating Temperature"
@@ -75,7 +77,8 @@ registers:
   - name: "Electrical Power Consumption"  # SKUTEČNÁ elektrická spotřeba
     reg: 40018              
     table: input
-    scale: 0.00479          # Real-world kalibrace: 1.7 kW @ ~355 raw (displej LG aktuální)
+    #scale: 0.00479          # Real-world kalibrace: 1.7 kW @ ~355 raw (displej LG aktuální)
+    scale: 0.1          # Real-world kalibrace: 1.7 kW @ ~355 raw (displej LG aktuální)
     unit: "kW"
 
   # === SILENT MODE (2 NOVÉ registry) ===

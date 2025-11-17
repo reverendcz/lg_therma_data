@@ -120,16 +120,6 @@ registers:
     unit: "°C"
   # ... dalších 27 registrů
 ```
-
-## 🔧 Kalibrace
-
-Všechny hodnoty jsou **100% přesně kalibrovány** na základě real-world měření:
-
-- **Průtok vody**: 0.055 scale factor (27.5 l/min @ 500 raw)
-- **Tlak vody**: 0.018 scale factor (1.4 bar @ 77 raw)
-- **Elektrická spotřeba**: 0.00479 scale factor (2.8 kW @ 586 raw)
-- **Teploty**: 0.1 scale factor (přesné na 0.1°C)
-
 ## 📈 COP výpočet
 
 Automatický výpočet Coefficient of Performance:
