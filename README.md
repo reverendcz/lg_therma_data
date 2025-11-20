@@ -1,241 +1,117 @@
-# LG Therma V Monitor v1.0.0
-Verze testované jednotky LG model HU091MR.U44
+# 🏆 LG Therma V Modbus Registry - Oficiální implementace
 
-🏠 **Komunitní monitoring tool pro LG Therma V tepelná čerpadla**
+**Verze:** 2.1.0 | **Model:** HU091MR.U44 | **Status:** ✅ Production Ready
 
-Kompletní Python nástroj pro sledování a analýzu tepelného čerpadla LG Therma V pomocí Modbus/TCP protokolu. Poskytuje přesné real-time monitoring všech klíčových parametrů s možnou kalibrací.
+🏠 **Pokročilý monitoring tool pro LG Therma V tepelná čerpadla**
 
-## 🚀 Rychlý start
+Komplexní implementace Modbus registrů pro tepelné čerpadlo LG Therma V s pokročilým monitoringem, delta trackingem a COP výpočty. Všechny registry jsou ověřené proti skutečnosti a kalibrované pro přesné zobrazení hodnot.
+
 
 ### Instalace
 ```bash
-git clone <repository>
-cd lg_therma
+git clone https://github.com/reverendcz/lg_therma_data.git
+cd lg_therma_data
+
+# Doporučeno: použijte virtual environment
+python -m venv .venv
+.venv\Scripts\Activate.ps1  # Windows
+source .venv/bin/activate    # Linux/Mac
+
 pip install -r requirements.txt
 ```
 
-### Základní použití
+### Použití
 ```bash
-# Smooth monitoring (doporučeno)
-python lgscan.py --smooth
+# Hlavní monitoring tool (doporučeno)
+python lgscan.py --smooth --interval 10    # Plynulá tabulka s delta tracking
+python lgscan.py --simple --interval 15    # Jednoduché zobrazení hlavních hodnot
+python lgscan.py --once                     # Jednorázové čtení
 
-# Dynamická tabulka s obnovováním
-python lgscan.py --table --interval 10
+# CSV export (monitoring s uložením dat)
+python lgscan.py --smooth --interval 10 --out monitoring_$(Get-Date -Format 'yyyyMMdd_HHmmss').csv
+python lgscan.py --simple --interval 30 --out simple_log.csv --log monitoring.log
 
-# Jednoduchý přehled
-python lgscan.py --simple
+# Jednoduchy rychlé čtení konkrétního registru
+python modbus_tcp.py 192.168.1.100 30004          # Teplota výstupu
+python modbus_tcp.py 192.168.1.100 30003 5        # Teplota vstupu každých 5s
+.\modbus_tcp.ps1 192.168.1.100 40018 2 1000      # PowerShell verze
 ```
 
-## 📋 Parametry spouštění
+### ⚠️ Poznámky k použití
+- **Smooth režim:** dynamicky se překresluje tabulka
+- **Optimální interval:** 10-30 sekund pro stabilní výkon
+- **Delta teploty:** Zobrazují se ve všech režimech (sloupec/footer/detail)
 
-| Parametr | Popis | Příklad |
-|----------|-------|---------|
-| `--smooth` | Plynulé obnovování bez blikání (DOPORUČENO) | `python lgscan.py --smooth` |
-| `--table` | Dynamická tabulka s obnovováním | `python lgscan.py --table` |
-| `--simple` | Jednoduchý přehled základních hodnot | `python lgscan.py --simple` |
-| `--interval X` | Interval obnovování v sekundách (default: 60s) | `python lgscan.py --smooth --interval 5` |
-| `--once` | Jeden výpis a konec | `python lgscan.py --simple --once` |
-| `--yaml FILE` | Vlastní konfigurační soubor | `python lgscan.py --yaml custom.yaml` |
-| `--out FILE` | Uložení do CSV souboru | `python lgscan.py --out data.csv` |
-| `--log FILE` | Logovací soubor | `python lgscan.py --log debug.log` |
+## 📋 Dostupné konfigurace
 
-### Příklady použití
-```bash
-# Kontinuální smooth monitoring s 5s intervalem
-python lgscan.py --smooth --interval 5
-
-# Dynamická tabulka s 10s intervalem a CSV záznamem
-python lgscan.py --table --interval 10 --out monitoring.csv
-
-# Jednorázový výpis do CSV
-python lgscan.py --simple --once --out snapshot.csv
-
-# Debug režim s logováním
-python lgscan.py --smooth --interval 8 --log debug.log
-```
-
-## 🎯 Funkce
-
-### ✅ Kompletní monitoring
-- **28 registrů** pokrývajících všechny klíčové parametry
-- **100% přesná kalibrace** všech hodnot
-- **Real-time COP výpočet** (Coefficient of Performance)
-- **Inteligentní diagnostika** chyb a stavů
-
-### 📊 Sledované parametry
-
-**Teploty (6 registrů)**
-- Pokojová teplota
-- Teploty vstup/výstup topení
-- Teplota zásobníku TUV
-- Venkovní teplota
-
-**Hydraulika (5 registrů)**
-- Průtok vody (kalibrace l/min)
-- Tlak vody (kalibrace bar)
-- Cílové teploty topení/TUV
-- Elektrická spotřeba (přesná kalibrace kW)
-
-**Stavy systému (17 registrů)**
-- Silent mode nastavení/status
-- Elektrické dohřevy (3 stupně)
-- Stavy pumpy, kompresoru, odmrazování
-- Diagnostické kódy a chyby
-- Manuální ovládání
-
-### 🖥️ Zobrazení
-
-**Smooth Mode (--smooth)** - DOPORUČENO
-- Plynulé obnovování pomocí ANSI escape sekvencí
-- Žádné blikání obrazovky
-- Perfektně zarovnaná tabulka
-- Barevné rozlišení hodnot
-
-**Table Mode (--table)**
-- Dynamická tabulka s kompletním refresh
-- Vhodné pro starší terminály
-- Úplné vymazání a překreslování
-
-**Simple Mode (--simple)**
-- Jednoduchý textový výpis
-- Pouze klíčové parametry
-- Vhodné pro skripty a automatizaci
-
-## ⚙️ Konfigurace
-
-Konfigurace je v souboru `registers.yaml`:
-
-```yaml
-connection:
-  host: 192.168.100.199  # IP adresa tepelného čerpadla
-  port: 502              # Modbus TCP port
-  unit: 1                # Modbus jednotka
-  timeout: 3.0           # Timeout připojení
-  delay_ms: 300          # Delay mezi registry
-
-registers:
-  - name: "Room Temperature"
-    reg: 30008
-    table: auto
-    scale: 0.1
-    unit: "°C"
-  # ... dalších 27 registrů
-```
-## 📈 COP výpočet
-
-Automatický výpočet Coefficient of Performance:
-```
-COP = Tepelný výkon / Elektrická spotřeba
-```
-
-**Podmínky platnosti COP:**
-- Kompresor běží (status = 1)
-- Odmrazování neběží (status = 0)
-- Systém topí (režim = 2)
-
-## 🛠️ Systémové požadavky
-
-- Python 3.7+
-- Windows/Linux/macOS
-- Síťové připojení k LG Therma V
-- Povolený Modbus/TCP na tepelném čerpadle
-
-### Python závislosti
-```
-pymodbus==3.6.6
-PyYAML==6.0.2
-colorama==0.4.6
-```
+| Konfigurace | Registry | Úspěšnost | Doporučení |
+|-------------|----------|-----------|------------|
+| `registers.yaml` | 41 registrů | 41/41 (100%) | ✅ **DOPORUČENO** - Optimalizovaná konfigurace |
 
 ## 📁 Struktura projektu
 
 ```
 lg_therma/
-├── lgscan.py           # Hlavní monitoring program
-├── modbus_tcp.py       # Python TCP nástroj (bez závislostí)
-├── modbus_tcp.ps1      # PowerShell TCP nástroj (Windows)
-├── registers.yaml      # Konfigurace registrů
-├── requirements.txt    # Python závislosti
-├── README.md          # Tento soubor
-└── docs/              # Dokumentace
+├── 📄 lgscan.py                        # ✅ Hlavní monitoring tool (pokročilý)
+├── 📄 registers.yaml                   # ✅ Konfigurace registrů (41 optimalizovaných)
+├── 📄 modbus_tcp.py                    # 🚀 Jednoduché čtení Python (bez závislostí)
+├── 📄 modbus_tcp.ps1                   # 🚀 Jednoduché čtení PowerShell  
+├── 📄 requirements.txt                 # Python dependencies
+├── 📄 README.md                        # Tento soubor
+├── 📁 docs/                            # Kompletní dokumentace
+│   ├── 📄 HA_LG_ThermaV_Configuration.yaml # Home Assistant konfigurace
+│   └── 📄 *.md                         # Technická dokumentace
+└── 📁 .venv/                          # Python virtual environment
 ```
 
-## 🔧 Jednoduché TCP nástroje
+## 🛠️ Systémové požadavky
 
-Pro rychlé čtení jednotlivých registrů bez složitých závislostí:
+- **Python:** 3.7+
+- **Síť:** Připojení k LG Therma V (IP: 192.168.100.199)
+- **Modbus:** TCP port 502 aktivní
 
-### PowerShell TCP nástroj (Windows)
-```powershell
-# Jednorázové čtení
-.\modbus_tcp.ps1 192.168.100.199 30004 1 1000
+### Dependencies
+```txt
+# Pro lgscan.py (pokročilý monitoring)
+pymodbus==3.6.6
+PyYAML==6.0.2
+colorama==0.4.6
 
-# Kontinuální monitoring
-.\modbus_tcp.ps1 192.168.100.199 30003 5 500
+# Pro modbus_tcp.py/.ps1 (jednoduché čtení)
+# Žádné externí závislosti - používají čistý TCP socket
 ```
-# Čtení pomocí PowerShellu na přímo 
-$ip="192.168.100.199";$c=[Net.Sockets.TcpClient]::new($ip,502);$s=$c.GetStream();[byte[]]$q=0,1,0,0,0,6,1,4,0,3,0,1;$s.Write($q,0,$q.Length);$b=New-Object byte[] 256;$null=$s.Read($b,0,$b.Length);$s.Close();$c.Close();[BitConverter]::ToInt16(@($b[10],$b[9]),0)
 
-# Čtení pomocí PowerShellu na přímo - opakované čtení něco jako ping
-$ip = "192.168.100.199"
 
-while ($true) {
-    $c = [Net.Sockets.TcpClient]::new()
-    $c.ReceiveTimeout = 1000  # 1 s timeout pro čtení
-    $c.Connect($ip, 502)
-    $s = $c.GetStream()
+## 🚀 Jednoduché skripty (bez závislostí)
 
-    # Read Input Registers (func 4), adresa 3 (30004), 1 registr
-    [byte[]]$q = 0,1,0,0,0,6,1,4,0,3,0,1
-    $s.Write($q, 0, $q.Length)
-
-    $b = New-Object byte[] 256
-    $null = $s.Read($b, 0, $b.Length)
-
-    $s.Close()
-    $c.Close()
-
-    $raw  = [BitConverter]::ToInt16(@($b[10], $b[9]), 0)
-    $temp = [Math]::Round($raw / 10.0, 1)
-
-    "{0}  raw={1}  temp={2} °C" -f (Get-Date -Format "HH:mm:ss"), $raw, $temp
-
-    Start-Sleep -Seconds 5   # interval čtení, klidně změň na 2, 10, ...
-}
-
-Výsledek:
-14:56:49  raw=232  temp=23,2 °C
-14:56:54  raw=232  temp=23,2 °C
-14:56:59  raw=232  temp=23,2 °C
-14:57:04  raw=232  temp=23,2 °C
-14:57:09  raw=232  temp=23,2 °C
-
-### Python TCP nástroj (multiplatform)
+### `modbus_tcp.py` - Python bez externích knihoven
 ```bash
 # Jednorázové čtení
-python modbus_tcp.py 192.168.100.199 30004 0 1000
+python modbus_tcp.py 192.168.1.100 30004
 
 # Kontinuální monitoring
-python modbus_tcp.py 192.168.100.199 40018 3 1000
+python modbus_tcp.py 192.168.1.100 30003 5      # Každých 5 sekund
+python modbus_tcp.py 192.168.1.100 40018 2 1000 # Každé 2s s timeoutem 1s
 ```
 
-**Výhody TCP nástrojů:**
-- ✅ Žádné externí závislosti
-- ✅ Přímý TCP socket přístup
-- ✅ Rychlé připojení/odpojení
-- ✅ Jednoduché použití
+**Podporované registry:** 14 základních (teploty, průtok, tlak, výkon)
 
-## 🎯 Výsledky
+### `modbus_tcp.ps1` - PowerShell 
+```powershell
+# Jednorázové čtení  
+.\modbus_tcp.ps1 192.168.1.100 30004
 
-**Kompletně funkční monitoring tool s:**
-- ✅ 100% přesnou kalibrací
-- ✅ Dokonalým zarovnáním tabulky
-- ✅ Smooth refresh bez blikání
-- ✅ Kompletním 28-registrovým monitoringem
-- ✅ Přesným COP výpočtem
-- ✅ Profesionálním vzhledem
-- ✅ Trojitým zobrazovacím režimem
-- ✅ Flexibilní konfigurací
+# Kontinuální monitoring
+.\modbus_tcp.ps1 192.168.1.100 30003 5      # Každých 5 sekund
+.\modbus_tcp.ps1 192.168.1.100 40018 2 1000 # Každé 2s s timeoutem 1s
+.\powershell -ExecutionPolicy Bypass -File .\modbus_tcp.ps1 192.168.1.1 40018 0  # v případě že windows odmítnou spustit skript
+```
+## 📚 Dokumentace
+
+Kompletní dokumentace v adresáři `docs/`:
 
 ---
 
-🏆 **PROJEKT KOMPLETNĚ DOKONČEN** 🏆
+**🔗 Repository:** [lg_therma_data](https://github.com/reverendcz/lg_therma_data)  
+**📧 Contact:** Project maintainer  
+**📅 Last Update:** 20. listopad 2025

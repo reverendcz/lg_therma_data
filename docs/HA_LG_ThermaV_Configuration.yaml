@@ -1,0 +1,413 @@
+# ============================================================================
+# HOME ASSISTANT KONFIGURACE - LG THERMA V
+# ============================================================================
+# Generováno: 20.11.2025
+# Zdroj: Optimalizovaná konfigurace z lgscan.py (41 aktivních registrů)
+# Kalibrace: Power consumption kalibrován s LG displejem (koeficient 0.002714)
+# Použití: Zkopírovat do modbus sekce v Home Assistant configuration.yaml
+# ============================================================================
+
+modbus:
+  - name: lg_therma_v
+    type: tcp
+    host: 192.168.100.199
+    port: 502
+    delay: 1
+    timeout: 8
+    
+    sensors:
+      # ============================================================================
+      # 🌡️ TEPLOTY - Tepelný monitoring systému
+      # ============================================================================
+      
+      - name: "LG ThermaV Outdoor Air Temperature"          # Venkovní teplota vzduchu
+        slave: 1
+        address: 12           # 30013-1
+        input_type: input
+        data_type: int16
+        scale: 0.1
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        
+      - name: "LG ThermaV Water Inlet Temperature"          # Teplota vody na vstupu
+        slave: 1
+        address: 2            # 30003-1
+        input_type: input
+        data_type: int16
+        scale: 0.1
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        
+      - name: "LG ThermaV Water Outlet Temperature"         # Teplota vody na výstupu
+        slave: 1
+        address: 3            # 30004-1
+        input_type: input
+        data_type: int16
+        scale: 0.1
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        
+      - name: "LG ThermaV Target Temperature Circuit 1"     # Cílová teplota okruh 1
+        slave: 1
+        address: 2            # 40003-40001
+        input_type: holding
+        data_type: int16
+        scale: 0.1
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        
+      - name: "LG ThermaV Room Temperature Circuit 1"       # Pokojová teplota okruh 1
+        slave: 1
+        address: 7            # 30008-1
+        input_type: input
+        data_type: int16
+        scale: 0.1
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        
+      - name: "LG ThermaV Room Temperature Circuit 1 Hold"  # Pokojová teplota okruh 1 (holding)
+        slave: 1
+        address: 3            # 40004-40001
+        input_type: holding
+        data_type: int16
+        scale: 0.1
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        
+      - name: "LG ThermaV Auto Mode Shift Circuit 1"        # Posun hodnoty auto režim
+        slave: 1
+        address: 4            # 40005-40001
+        input_type: holding
+        data_type: int16
+        scale: 0.1
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        
+      - name: "LG ThermaV DHW Tank Temperature"             # Teplota zásobníku TUV
+        slave: 1
+        address: 5            # 30006-1
+        input_type: input
+        data_type: int16
+        scale: 0.1
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        
+      - name: "LG ThermaV DHW Target Temperature"           # Cílová teplota TUV
+        slave: 1
+        address: 8            # 40009-40001
+        input_type: holding
+        data_type: int16
+        scale: 0.1
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        
+      - name: "LG ThermaV Backup Heater Outlet Temp"       # Teplota výstupu záložního ohřívače
+        slave: 1
+        address: 4            # 30005-1
+        input_type: input
+        data_type: int16
+        scale: 0.1
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        
+      - name: "LG ThermaV Backup Heater Temperature"        # Teplota záložního ohřívače
+        slave: 1
+        address: 16           # 30017-1
+        input_type: input
+        data_type: int16
+        scale: 0.1
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+
+      # ============================================================================
+      # ⚙️ HYDRAULIKA & KOMPRESNÍ SYSTÉM - Výkon a tlaky
+      # ============================================================================
+      
+      - name: "LG ThermaV Current Flow Rate"               # Průtok vody
+        slave: 1
+        address: 8            # 30009-1
+        input_type: input
+        data_type: int16
+        scale: 0.1
+        precision: 1
+        unit_of_measurement: "l/min"
+        state_class: measurement
+        
+      - name: "LG ThermaV Water Pressure Input"            # Tlak vody (input)
+        slave: 1
+        address: 13           # 30014-1
+        input_type: input
+        data_type: int16
+        scale: 0.1
+        precision: 1
+        unit_of_measurement: "bar"
+        device_class: pressure
+        state_class: measurement
+        
+      - name: "LG ThermaV Water Pressure Hold"             # Tlak vody (holding)
+        slave: 1
+        address: 12           # 40013-40001
+        input_type: holding
+        data_type: int16
+        scale: 0.1
+        precision: 1
+        unit_of_measurement: "bar"
+        device_class: pressure
+        
+      - name: "LG ThermaV Evaporator Pressure"             # Tlak výparníku
+        slave: 1
+        address: 21           # 30022-1
+        input_type: input
+        data_type: int16
+        scale: 1
+        precision: 0
+        unit_of_measurement: "bar"
+        device_class: pressure
+        state_class: measurement
+        
+      - name: "LG ThermaV Compressor Pressure"             # Tlak kompresoru
+        slave: 1
+        address: 22           # 30023-1
+        input_type: input
+        data_type: int16
+        scale: 1
+        precision: 0
+        unit_of_measurement: "bar"
+        device_class: pressure
+        state_class: measurement
+        
+      - name: "LG ThermaV Compressor RPM"                  # Otáčky kompresoru
+        slave: 1
+        address: 23           # 30024-1
+        input_type: input
+        data_type: int16
+        scale: 60
+        precision: 0
+        unit_of_measurement: "rpm"
+        state_class: measurement
+
+      # ============================================================================
+      # ⚡ SPOTŘEBA ENERGIE - Kalibrovaná hodnota
+      # ============================================================================
+      
+      - name: "LG ThermaV Electrical Power Consumption"    # PRIMÁRNÍ - Spotřeba energie
+        slave: 1
+        address: 17           # 30018-1
+        input_type: input
+        data_type: int16
+        scale: 0.002714       # Kalibrováno s LG displejem
+        precision: 2
+        unit_of_measurement: "kW"
+        device_class: power
+        state_class: measurement
+
+      # ============================================================================
+      # 📊 STAVY & REŽIMY - Systémové informace
+      # ============================================================================
+      
+      - name: "LG ThermaV Error Code"                      # Kód chyby
+        slave: 1
+        address: 0            # 30001-1
+        input_type: input
+        data_type: int16
+        scale: 1
+        precision: 0
+        
+      - name: "LG ThermaV ODU Operation Cycle"             # Cyklus provozu venkovní jednotky
+        slave: 1
+        address: 1            # 30002-1
+        input_type: input
+        data_type: int16
+        scale: 1
+        precision: 0
+        
+      - name: "LG ThermaV Operation Mode"                  # Režim provozu
+        slave: 1
+        address: 0            # 40001-40001
+        input_type: holding
+        data_type: int16
+        scale: 1
+        precision: 0
+        
+      - name: "LG ThermaV System Mode"                     # Systémový režim (duplikát)
+        slave: 1
+        address: 0            # 40001-40001
+        input_type: holding
+        data_type: int16
+        scale: 1
+        precision: 0
+        
+      - name: "LG ThermaV Control Type"                    # Typ řízení
+        slave: 1
+        address: 1            # 40002-40001
+        input_type: holding
+        data_type: int16
+        scale: 1
+        precision: 0
+        
+      - name: "LG ThermaV Control Method"                  # Metoda řízení okruhů
+        slave: 1
+        address: 1            # 40002-40001
+        input_type: holding
+        data_type: int16
+        scale: 1
+        precision: 0
+
+    binary_sensors:
+      # ============================================================================
+      # 🔌 BINÁRNÍ STATUSY - Monitorování stavů
+      # ============================================================================
+      
+      - name: "LG ThermaV Water Flow Status"              # Status průtoku vody
+        slave: 1
+        address: 0            # 10001-10001
+        input_type: discrete
+        
+      - name: "LG ThermaV Water Pump Status"              # Status vodní pumpy
+        slave: 1
+        address: 1            # 10002-10001
+        input_type: discrete
+        
+      - name: "LG ThermaV External Water Pump Status"     # Status externí pumpy
+        slave: 1
+        address: 2            # 10003-10001
+        input_type: discrete
+        
+      - name: "LG ThermaV Compressor Status"              # Status kompresoru
+        slave: 1
+        address: 3            # 10004-10001
+        input_type: discrete
+        
+      - name: "LG ThermaV Defrosting Status"              # Status odmrazování
+        slave: 1
+        address: 4            # 10005-10001
+        input_type: discrete
+        
+      - name: "LG ThermaV DHW Heating Status"             # Status ohřevu TUV
+        slave: 1
+        address: 5            # 10006-10001
+        input_type: discrete
+        
+      - name: "LG ThermaV DHW Disinfection Status"        # Status dezinfekce TUV
+        slave: 1
+        address: 6            # 10007-10001
+        input_type: discrete
+        
+      - name: "LG ThermaV Silent Mode Status"             # Status tichého režimu
+        slave: 1
+        address: 7            # 10008-10001
+        input_type: discrete
+        
+      - name: "LG ThermaV Cooling Status"                 # Status chlazení
+        slave: 1
+        address: 8            # 10009-10001
+        input_type: discrete
+        
+      - name: "LG ThermaV Backup Heater Step 1 Status"   # Status záložní ohřívač 1
+        slave: 1
+        address: 10           # 10011-10001
+        input_type: discrete
+        
+      - name: "LG ThermaV Backup Heater Step 2 Status"   # Status záložní ohřívač 2
+        slave: 1
+        address: 11           # 10012-10001
+        input_type: discrete
+        
+      - name: "LG ThermaV DHW Boost Heater Status"       # Status výkonový ohřívač TUV
+        slave: 1
+        address: 12           # 10013-10001
+        input_type: discrete
+        
+      - name: "LG ThermaV Error Status"                   # Status chyby
+        slave: 1
+        address: 13           # 10014-10001
+        input_type: discrete
+
+    switches:
+      # ============================================================================
+      # 🎛️ OVLÁDACÍ PRVKY - Binární ovládání
+      # ============================================================================
+      
+      - name: "LG ThermaV Silent Mode Control"            # Ovládání tichého režimu
+        slave: 1
+        address: 2            # 3-1
+        command_on: 1
+        command_off: 0
+        
+      - name: "LG ThermaV Trigger Disinfection"           # Spuštění dezinfekce
+        slave: 1
+        address: 3            # 4-1
+        command_on: 1
+        command_off: 0
+        
+      - name: "LG ThermaV Emergency Stop"                 # Nouzové zastavení
+        slave: 1
+        address: 4            # 5-1
+        command_on: 1
+        command_off: 0
+        
+      - name: "LG ThermaV Emergency Operation"            # Nouzový provoz
+        slave: 1
+        address: 5            # 6-1
+        command_on: 1
+        command_off: 0
+
+# ============================================================================
+# 💤 ZAKOMENTOVANÉ REGISTRY - Pro úplnost dokumentace
+# ============================================================================
+# Následující registry jsou v registers.yaml zakomentované jako nepotřebné:
+
+# - 30007 - Solar Collector Temperature (nemám solární kolektor)
+# - 40011 - Compressor Modulation (nepotřebné pro monitoring)
+# - 40018 - Electrical Power Consumption (nefunkční - vždy 0)
+# - 30012 - Energy State Input (nepotřebné)
+# - 40010 - Energy State Input Detailed (nepotřebné)
+# - 10010 - Solar Pump Status (nemám solární pumpu)
+# - 10015 - Emergency Operation Available Space Heating/Cooling (nepotřebné)
+# - 10016 - Emergency Operation Available DHW (nepotřebné)
+# - 10017 - Mix Pump Status (nepotřebné)
+# - 00001 - Enable/Disable Heating/Cooling (nepotřebné)
+# - 00002 - Enable/Disable DHW (nepotřebné)
+
+# Pokud potřebuješ některý z těchto registrů aktivovat:
+# 1. Odkomentuj v registers.yaml
+# 2. Přidej odpovídající HA konfiguraci podle vzoru výše
+# 3. Restart lgscan.py a Home Assistant
+
+# ============================================================================
+# POZNÁMKY K POUŽITÍ:
+# ============================================================================
+# 1. Zkopíruj tuto konfiguraci do svého configuration.yaml
+# 2. Restart Home Assistant
+# 3. Všechny entity budou dostupné s prefixy "LG ThermaV"
+# 4. Power consumption je kalibrován - zobrazuje stejné hodnoty jako displej
+# 5. Zakomentované registry (9 ks) nejsou zahrnuty pro čistší konfiguraci
+# 
+# HLAVNÍ ENTITY:
+# - sensor.lg_thermav_electrical_power_consumption (kalibrovaný příkon)
+# - sensor.lg_thermav_outdoor_air_temperature (venkovní teplota)
+# - sensor.lg_thermav_water_inlet_temperature (vstup)
+# - sensor.lg_thermav_water_outlet_temperature (výstup)
+# - sensor.lg_thermav_dhw_tank_temperature (TUV)
+# - sensor.lg_thermav_current_flow_rate (průtok)
+# - sensor.lg_thermav_compressor_rpm (otáčky)
+# - binary_sensor.lg_thermav_compressor_status (běží/neběží)
+# ============================================================================

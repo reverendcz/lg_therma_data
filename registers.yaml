@@ -2,188 +2,441 @@ connection:
   host: 192.168.100.199
   port: 502
   unit: 1
-  timeout: 3.0   # Delší timeout pro více registrů
-  delay_ms: 300  # Delší delay pro stabilitu
+  timeout: 4.0   # Sníženo z 8.0 pro rychlejší monitoring
+  delay_ms: 200  # Sníženo z 400 pro vylepšený výkon
 
 registers:
-  # === KOMPLETNÍ MONITORING LG THERMA V - 28 REGISTRŮ ===
-  # === VŠECHNY KLÍČOVÉ REGISTRY VČETNĚ DŘÍVE CHYBĚJÍCÍCH ===
+  # === FINÁLNÍ LOGICKY USPOŘÁDANÁ KONFIGURACE ===
+  # Logické seskupení: Teploty → Hydraulika & Kompresory → Stavy → Binární statusy
+  # Datum: 19.11.2025 - Finální verze s power consumption kalibrací
+  # Úspěšnost: 41/50 registrů (82% - 9 zakomentováno jako nepotřebné)
+
+  # ============================================================================
+  # 🌡️ TEPLOTY (logicky seřazené podle tepelného toku)
+  # ============================================================================
   
-  # === TEPLOTY (6 registrů) ===
-  - name: "Room Temperature"
-    reg: 30008              
-    table: auto
-    scale: 0.1              
-    unit: "°C"
-    
-  - name: "Heating Circuit OUTLET"
-    reg: 30004              
-    table: auto
-    scale: 0.1              
-    unit: "°C"
-
-  - name: "Heating Circuit INLET" 
-    reg: 30003              
-    table: auto
-    scale: 0.1              
-    unit: "°C"
-
-  - name: "DHW Tank Temperature"
-    reg: 30006              
-    table: auto
-    scale: 0.1              
-    unit: "°C"
-
-  - name: "DHW Circuit Inlet"
-    reg: 30005              
-    table: auto
-    scale: 0.1              
-    unit: "°C"
-
   - name: "Outdoor Air Temperature"
     reg: 30013              
-    table: auto
-    scale: 0.1              
-    unit: "°C"
-
-  # === HYDRAULIKA + CÍLE (5 registrů) ===
-  - name: "Water Flow Rate"
-    reg: 30009              
-    table: auto
-    #scale: 0.055            # Real-world kalibrace: 24.7-28.6 l/min @ 500 raw (DHW režim)
-    scale: 0.1            
-    unit: "l/min"
-
-  - name: "Water Pressure"
-    reg: 40013              
-    table: auto
-    #scale: 0.018            # Real-world kalibrace: 1.2-1.4 bar @ 70-74 raw
-    scale: 0.01            
-    unit: "bar"
-
-  - name: "Target Heating Temperature"
-    reg: 40003              
     table: input
     scale: 0.1              
     unit: "°C"
+    comment: "Venkovní teplota vzduchu - referenční teplota"
+
+  - name: "Water Inlet Temperature"
+    reg: 30003              
+    table: input
+    scale: 0.1              
+    unit: "°C"
+    comment: "Teplota vody na vstupu do systému"
+
+  - name: "Water Outlet Temperature"
+    reg: 30004              
+    table: input
+    scale: 0.1              
+    unit: "°C"
+    comment: "Teplota vody na výstupu ze systému"
+
+  - name: "Target Temperature Heating/Cooling Circuit 1"
+    reg: 40003              
+    table: holding
+    scale: 0.1              
+    unit: "°C"
+    comment: "Cílová teplota topení/chlazení okruh 1"
+
+  - name: "Room Air Temperature Circuit 1"
+    reg: 30008              
+    table: input
+    scale: 0.1              
+    unit: "°C"
+    comment: "Pokojová teplota okruh 1"
+
+  - name: "Room Air Temperature Circuit 1"
+    reg: 40004              
+    table: holding
+    scale: 0.1              
+    unit: "°C"
+    comment: "Pokojová teplota okruh 1 (holding)"
+
+  - name: "Shift Value Target Auto Mode Circuit 1"
+    reg: 40005              
+    table: holding
+    scale: 0.1              
+    unit: "°C"
+    comment: "Posun hodnoty auto režim okruh 1"
+
+  - name: "DHW Tank Water Temperature"
+    reg: 30006              
+    table: input
+    scale: 0.1              
+    unit: "°C"
+    comment: "Teplota vody v zásobníku TUV"
 
   - name: "DHW Target Temperature"
     reg: 40009              
-    table: input
-    scale: 0.1
+    table: holding
+    scale: 0.1              
     unit: "°C"
+    comment: "Cílová teplota TUV"
 
-  # === ENERGIE A SPOTŘEBA (1 registr) ===
-  - name: "Electrical Power Consumption"  # SKUTEČNÁ elektrická spotřeba
-    reg: 40018              
+  - name: "Backup Heater Outlet Temperature"
+    reg: 30005              
     table: input
-    #scale: 0.00479          # Real-world kalibrace: 1.7 kW @ ~355 raw (displej LG aktuální)
-    scale: 0.1          # Real-world kalibrace: 1.7 kW @ ~355 raw (displej LG aktuální)
+    scale: 0.1              
+    unit: "°C"
+    comment: "Teplota výstupu záložního ohříváče"
+
+  - name: "Backup Heater Temperature"
+    reg: 30017              
+    table: input
+    scale: 0.1              
+    unit: "°C"
+    comment: "Teplota záložního ohříváče - servisní teplota 1"
+
+  # - name: "Solar Collector Temperature"
+  #   reg: 30007              
+  #   table: input
+  #   scale: 0.1              
+  #   unit: "°C"
+  #   comment: "Teplota solárního kolektoru - ZAKOMENTOVÁNO: stálá hodnota, nemám solar collector"
+
+  # ============================================================================
+  # ⚙️ HYDRAULIKA & KOMPRESNÍ SYSTÉM
+  # ============================================================================
+
+  - name: "Current Flow Rate"
+    reg: 30009              
+    table: input
+    scale: 0.1              
+    unit: "l/min"
+    comment: "Aktuální průtok vody"
+
+  - name: "Water Pressure"
+    reg: 30014              
+    table: input
+    scale: 0.1              
+    unit: "bar"
+    comment: "Tlak vody (input registr)"
+
+  - name: "Water Pressure"
+    reg: 40013              
+    table: holding
+    scale: 0.1
+    unit: "bar"
+    comment: "Tlak vody (holding registr) - validovaný"
+
+  - name: "Evaporator Pressure"
+    reg: 30022              
+    table: input
+    scale: 1
+    unit: "Bar"
+    comment: "Tlak výparníku - z HA konfigurace"
+
+  - name: "Compressor Pressure"
+    reg: 30023              
+    table: input
+    scale: 1
+    unit: "Bar"
+    comment: "Tlak kompresoru - z HA konfigurace"
+
+  - name: "Compressor RPM"
+    reg: 30024              
+    table: input
+    scale: 60
+    unit: "rpm"
+    comment: "Otáčky kompresoru - z HA konfigurace"
+
+  # - name: "Compressor Modulation"
+  #   reg: 40011              
+  #   table: holding
+  #   scale: 1
+  #   unit: "%"
+  #   comment: "Modulace kompresoru - ZAKOMENTOVÁNO: nepotřebné"
+
+  - name: "Electrical Power Consumption"
+    reg: 30018              
+    table: input
+    scale: 0.002714
     unit: "kW"
+    comment: "PRIMÁRNÍ - Spotřeba elektrické energie (kalibrováno s LG displejem)"
 
-  # === SILENT MODE (2 NOVÉ registry) ===
-  - name: "Silent Mode Setting"          # Ovládání tichého režimu
-    reg: 00003              
-    table: coils
-    scale: 1
-    unit: ""
+  # - name: "Electrical Power Consumption"
+  #   reg: 40018              
+  #   table: holding
+  #   scale: 0.002714
+  #   unit: "kW"
+  #   comment: "NEFUNKČNÍ - vždy vrací 0, nahrazeno registrem 30018"
 
-  - name: "Silent Mode Status"           # Status tichého režimu
-    reg: 10008              
-    table: discrete
-    scale: 1
-    unit: ""
+  # ============================================================================
+  # 📊 STAVY & REŽIMY
+  # ============================================================================
 
-  # === BACKUP/ELECTRICAL HEATERS (3 NOVÉ registry) ===
-  - name: "Backup Heater Step 1 Status"  # Elektrický dohřev stupeň 1
-    reg: 10011              
-    table: discrete
-    scale: 1
-    unit: ""
-
-  - name: "Backup Heater Step 2 Status"  # Elektrický dohřev stupeň 2  
-    reg: 10012              
-    table: discrete
-    scale: 1
-    unit: ""
-
-  - name: "DHW Boost Heater Status"    # Elektrický dohřev TUV
-    reg: 10013              
-    table: discrete
-    scale: 1
-    unit: ""
-
-  # === FLOW SAFETY (2 NOVÉ registry) ===
-  - name: "Water Flow Status"          # Kontrola průtoku (0=OK, 1=LOW)
-    reg: 10001              
-    table: discrete
-    scale: 1
-    unit: ""
-
-  - name: "External Water Pump Status"   # Externí pumpa
-    reg: 10003              
-    table: discrete
-    scale: 1
-    unit: ""
-
-  # === SYSTEM DIAGNOSTICS (2 NOVÉ registry) ===
-  - name: "Error Code"                   # Kód chyby pro diagnostiku
+  - name: "Error Code"
     reg: 30001              
     table: input
     scale: 1
     unit: ""
+    comment: "Kód chyby systému"
 
-  - name: "Operation Cycle Status"       # Stav provozu (0:Standby/1:Cooling/2:Heating)
+  - name: "ODU Operation Cycle"
     reg: 30002              
     table: input
     scale: 1
     unit: ""
+    comment: "Cyklus provozu venkovní jednotky"
 
-  # === PŮVODNÍ ZÁKLADNÍ STATUSY (8 registrů) ===  
+  - name: "Operation Mode"
+    reg: 40001              
+    table: holding
+    scale: 1
+    unit: ""
+    comment: "Režim provozu"
+
+  - name: "System Heating/Cooling Mode"
+    reg: 40001              
+    table: holding
+    scale: 1
+    unit: ""
+    comment: "Systémový režim topení/chlazení - experimentální duplikát"
+
+  - name: "Control Type"
+    reg: 40002              
+    table: holding
+    scale: 1
+    unit: ""
+    comment: "Typ řízení - experimentální registr"
+
+  - name: "Control Method Circuit 1/2"
+    reg: 40002              
+    table: holding
+    scale: 1
+    unit: ""
+    comment: "Metoda řízení okruhů"
+
+  # - name: "Energy State Input"
+  #   reg: 30012              
+  #   table: input
+  #   scale: 1
+  #   unit: ""
+  #   comment: "Energetický stav vstupu - ZAKOMENTOVÁNO: nepotřebné"
+
+  # - name: "Energy State Input Detailed"
+  #   reg: 40010              
+  #   table: holding
+  #   scale: 1
+  #   unit: ""
+  #   comment: "Detailní energetický stav - ZAKOMENTOVÁNO: nepotřebné"
+
+  # ============================================================================
+  # 🔌 BINÁRNÍ STATUSY (DISCRETE INPUTS) - Monitorovací vstupy
+  # ============================================================================
+
+  - name: "Water Flow Status"
+    reg: 10001              
+    table: discrete
+    scale: 1
+    unit: ""
+    comment: "Status průtoku vody"
+
   - name: "Water Pump Status"
     reg: 10002              
     table: discrete
     scale: 1
     unit: ""
+    comment: "Status vodní pumpy"
+
+  - name: "External Water Pump Status"
+    reg: 10003              
+    table: discrete
+    scale: 1
+    unit: ""
+    comment: "Status externí vodní pumpy"
 
   - name: "Compressor Status"
     reg: 10004              
     table: discrete
     scale: 1
     unit: ""
+    comment: "Status kompresoru"
 
   - name: "Defrosting Status"
     reg: 10005              
     table: discrete
     scale: 1
     unit: ""
+    comment: "Status odmrazování"
 
   - name: "DHW Heating Status"
     reg: 10006              
     table: discrete
     scale: 1
     unit: ""
+    comment: "Status ohřevu TUV"
+
+  - name: "DHW Tank Disinfection Status"
+    reg: 10007              
+    table: discrete
+    scale: 1
+    unit: ""
+    comment: "Status dezinfekce zásobníku TUV"
+
+  - name: "Silent Mode Status"
+    reg: 10008              
+    table: discrete
+    scale: 1
+    unit: ""
+    comment: "Status tichého režimu"
+
+  - name: "Cooling Status"
+    reg: 10009              
+    table: discrete
+    scale: 1
+    unit: ""
+    comment: "Status chlazení"
+
+  # - name: "Solar Pump Status"
+  #   reg: 10010              
+  #   table: discrete
+  #   scale: 1
+  #   unit: ""
+  #   comment: "Status solární pumpy - ZAKOMENTOVÁNO: nepotřebné"
+
+  - name: "Backup Heater Step 1 Status"
+    reg: 10011              
+    table: discrete
+    scale: 1
+    unit: ""
+    comment: "Status záložního ohřívače stupeň 1"
+
+  - name: "Backup Heater Step 2 Status"
+    reg: 10012              
+    table: discrete
+    scale: 1
+    unit: ""
+    comment: "Status záložního ohřívače stupeň 2"
+
+  - name: "DHW Boost Heater Status"
+    reg: 10013              
+    table: discrete
+    scale: 1
+    unit: ""
+    comment: "Status výkonového ohřívače TUV"
 
   - name: "Error Status"
     reg: 10014              
     table: discrete
     scale: 1
     unit: ""
+    comment: "Status chyby"
 
-  - name: "Manual Defrost"
-    reg: 00001              
+  # - name: "Emergency Operation Available Space Heating/Cooling"
+  #   reg: 10015              
+  #   table: discrete
+  #   scale: 1
+  #   unit: ""
+  #   comment: "Dostupnost nouzového provozu topení/chlazení - ZAKOMENTOVÁNO: nepotřebné"
+
+  # - name: "Emergency Operation Available DHW"
+  #   reg: 10016              
+  #   table: discrete
+  #   scale: 1
+  #   unit: ""
+  #   comment: "Dostupnost nouzového provozu TUV - ZAKOMENTOVÁNO: nepotřebné"
+
+  # - name: "Mix Pump Status"
+  #   reg: 10017              
+  #   table: discrete
+  #   scale: 1
+  #   unit: ""
+  #   comment: "Status směšovací pumpy - ZAKOMENTOVÁNO: nepotřebné"
+
+  # ============================================================================
+  # 🎛️ OVLÁDACÍ PRVKY (COILS) - Binární read/write ovládání
+  # ============================================================================
+
+  # - name: "Enable/Disable Heating/Cooling"
+  #   reg: 1              
+  #   table: coils
+  #   scale: 1
+  #   unit: ""
+  #   comment: "Povolení/zakázání topení/chlazení - ZAKOMENTOVÁNO: nepotřebné"
+
+  # - name: "Enable/Disable DHW"
+  #   reg: 2              
+  #   table: coils
+  #   scale: 1
+  #   unit: ""
+  #   comment: "Povolení/zakázání TUV - ZAKOMENTOVÁNO: nepotřebné"
+
+  - name: "Silent Mode Set"
+    reg: 3              
     table: coils
     scale: 1
     unit: ""
+    comment: "Nastavení tichého režimu"
 
-  - name: "DHW Booster"
-    reg: 00002              
+  - name: "Trigger Disinfection Operation"
+    reg: 4              
     table: coils
     scale: 1
     unit: ""
+    comment: "Spuštění dezinfekční operace"
 
-  - name: "System Status A"
-    reg: 10015              
-    table: discrete
+  - name: "Emergency Stop"
+    reg: 5              
+    table: coils
     scale: 1
     unit: ""
+    comment: "Nouzové zastavení"
+
+  - name: "Trigger Emergency Operation"
+    reg: 6              
+    table: coils
+    scale: 1
+    unit: ""
+    comment: "Spuštění nouzového provozu"
+
+  # ============================================================================
+  # ⚡ NEZNÁMÉ REGISTRY (zakomentováno)
+  # ============================================================================
+
+  # - name: "Unknown Power Register"
+  #   reg: 30020              
+  #   table: input
+  #   scale: 0.002381
+  #   unit: "kW"
+  #   comment: "NEZNÁMÝ - registr neznámého účelu, možná alternativní power measurement"
+
+# === KOMENTOVANÉ ROZŠÍŘENÉ REGISTRY 50xxx ===
+# Tyto registry obsahují kopie některých standardních hodnot
+# Zakomentovány pro budoucí výzkum energetických dat
+#
+# - name: "Extended Status 1 (kopie)"
+#   reg: 50001              
+#   table: input
+#   scale: 1
+#   unit: ""
+#   comment: "ROZŠÍŘENÝ - obsahuje kopie některých hodnot"
+#
+# - name: "Extended Mode (kopie ODU Operation)"
+#   reg: 50002              
+#   table: input
+#   scale: 1
+#   unit: ""
+#   comment: "ROZŠÍŘENÝ - identické s 30002"
+#
+# - name: "Extended Temperature 1 (kopie Water Inlet)"
+#   reg: 50003              
+#   table: input
+#   scale: 0.1              
+#   unit: "°C"
+#   comment: "ROZŠÍŘENÝ - identické s 30003"
+#
+# - name: "Extended Temperature 2 (kopie Water Outlet)"
+#   reg: 50004              
+#   table: input
+#   scale: 0.1              
+#   unit: "°C"
+#   comment: "ROZŠÍŘENÝ - identické s 30004"
+#
+# Registry 50005-50014 existují ale obsahují kopie dalších hodnot
+# Pro energetická data budeme hledat jiné registry později

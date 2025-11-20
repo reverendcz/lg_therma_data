@@ -116,15 +116,17 @@ def convert_register_to_address(reg: int) -> int:
     Převede "lidský" registr na 0-based address pro pymodbus.
     
     Args:
-        reg: Registr (např. 30003, 40001)
+        reg: Registr (např. 30003, 40001, 50001)
     
     Returns:
         0-based address pro pymodbus
     """
-    if 30001 <= reg <= 39999:  # Holding registers
+    if 30001 <= reg <= 39999:  # Input registers 30xxx
         return reg - 30001
-    elif 40001 <= reg <= 49999:  # Input registers
+    elif 40001 <= reg <= 49999:  # Holding registers 40xxx
         return reg - 40001
+    elif 50001 <= reg <= 59999:  # Extended registers 50xxx (input/holding based on table type)
+        return reg - 50001
     elif 10001 <= reg <= 19999:  # Discrete inputs
         return reg - 10001
     elif 1 <= reg <= 9999:  # Coils
@@ -172,7 +174,7 @@ def read_register_value(client: ModbusTcpClient, register_config: Dict, unit: in
             response = client.read_input_registers(address, count=1, slave=unit)
         elif table == 'discrete':
             response = client.read_discrete_inputs(address, count=1, slave=unit)
-        elif table == 'coils':
+        elif table == 'coils' or table == 'coil':
             response = client.read_coils(address, count=1, slave=unit)
         elif table == 'auto':
             # Preferuj holding, pokud vrátí chybu nebo 0, zkus input
@@ -472,27 +474,21 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False, interval: i
                             else:
                                 # Číselné hodnoty s delta a směr
                                 delta = current_val - last_val
-                                if abs(delta) >= 0.01:  # Snížený práh pro citlivější detekci změn
-                                    if is_temperature:
-                                        delta_sign = "🔥" if delta > 0 else "❄️"
-                                        delta_str = f" {delta_sign}({delta:+.1f}°C)"
-                                        delta_value = f"{delta:+.1f}°C"
-                                    elif is_power:
-                                        delta_sign = "⬆️" if delta > 0 else "⬇️"
-                                        unit_suffix = "kW" if "kW" in result['unit'] else "W"
-                                        format_str = "{:+.1f}" if "kW" in result['unit'] else "{:+.0f}"
-                                        delta_str = f" {delta_sign}({format_str.format(delta)}{unit_suffix})"
-                                        delta_value = f"{format_str.format(delta)}{unit_suffix}"
-                                    elif is_flow:
-                                        delta_sign = "💪" if delta > 0 else "💧"
-                                        delta_str = f" {delta_sign}({delta:+.1f}l/min)"
-                                        delta_value = f"{delta:+.1f}l/min"
-                                    else:
-                                        delta_sign = "📈" if delta > 0 else "📉"
-                                        delta_str = f" {delta_sign}({delta:+.1f})"
-                                        delta_value = f"{delta:+.1f}"
-                    
-                    # Přidání delta informací do result pro CSV a log
+                        if abs(delta) >= 0.01:  # Snížený práh pro citlivější detekci změn
+                            if is_temperature:
+                                delta_str = f" ({delta:+.1f}°C)"
+                                delta_value = f"{delta:+.1f}°C"
+                            elif is_power:
+                                unit_suffix = "kW" if "kW" in result['unit'] else "W"
+                                format_str = "{:+.2f}" if "kW" in result['unit'] else "{:+.0f}"
+                                delta_str = f" ({format_str.format(delta)}{unit_suffix})"
+                                delta_value = f"{format_str.format(delta)}{unit_suffix}"
+                            elif is_flow:
+                                delta_str = f" ({delta:+.1f}l/min)"
+                                delta_value = f"{delta:+.1f}l/min"
+                            else:
+                                delta_str = f" ({delta:+.1f})"
+                                delta_value = f"{delta:+.1f}"                    # Přidání delta informací do result pro CSV a log
                     result['delta'] = delta_value
                     result['previous_value'] = previous_val
                     
@@ -511,11 +507,11 @@ def scan_registers(config: Dict, csv_file: Path, once: bool = False, interval: i
                         # Aplikuj barevné zvýraznění na delta_str
                         colored_delta_str = colorize_delta(delta_str, is_binary, is_temperature, is_power, is_flow)
                         
-                        output_line = f"✓ [{result['reg']:05d}] {result['name']}: {result['scaled']:.1f} {result['unit']}{colored_delta_str} (raw: {result['raw']}, table: {result['table']})"
+                        output_line = f"✓ [{result['reg']:05d}] {result['name']}: {result['scaled']:.2f} {result['unit']}{colored_delta_str} (raw: {result['raw']}, table: {result['table']})"
                         print(output_line)
                         
                         # Pro log soubor používáme nebarevnou verzi
-                        log_line = f"✓ [{result['reg']:05d}] {result['name']}: {result['scaled']:.1f} {result['unit']}{delta_str} (raw: {result['raw']}, table: {result['table']})"
+                        log_line = f"✓ [{result['reg']:05d}] {result['name']}: {result['scaled']:.2f} {result['unit']}{delta_str} (raw: {result['raw']}, table: {result['table']})"
                     else:
                         output_line = f"✗ [{result['reg']:05d}] {result['name']}: {result['error']}"
                         log_line = output_line
@@ -638,25 +634,37 @@ def get_color_for_value(register_data: Dict, value: Union[int, float, str]) -> t
     return Fore.WHITE, ""
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 def draw_table_header(title: str, iteration: int):
     """Vykreslí hlavičku tabulky"""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     full_title = f"🏠 {title} - Iteration {iteration}"
-    subtitle = f"📅 {timestamp} | 🖥️ Dynamic Table Mode"
+    subtitle = f"📅 {timestamp} | 🖥️ Smooth Table Mode"
     
-    print(f"{Fore.CYAN}{Style.BRIGHT}{'═' * 88}{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}{Style.BRIGHT}{full_title.center(88)}{Style.RESET_ALL}")
-    print(f"{Fore.MAGENTA}{subtitle.center(88)}{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}{Style.BRIGHT}{'═' * 88}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}{Style.BRIGHT}{'═' * 108}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}{Style.BRIGHT}{full_title.center(108)}{Style.RESET_ALL}")
+    print(f"{Fore.MAGENTA}{subtitle.center(108)}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}{Style.BRIGHT}{'═' * 108}{Style.RESET_ALL}")
     
     header = f"{Fore.WHITE}{Style.BRIGHT}"
-    print(f"{header}┌────────┬─────────────────────────────────────┬──────────┬────────┬──────┬────────────┐{Style.RESET_ALL}")
-    print(f"{header}│Register│ Parameter                           │ Value    │ Unit   │ Raw  │ Status     │{Style.RESET_ALL}")
-    print(f"{header}├────────┼─────────────────────────────────────┼──────────┼────────┼──────┼────────────┤{Style.RESET_ALL}")
+    print(f"{header}┌────────┬─────────────────────────────────────┬──────────┬────────┬──────┬──────────────────────┬────────────┐{Style.RESET_ALL}")
+    print(f"{header}│Register│ Parameter                           │ Value    │ Unit   │ Raw  │ Delta Changes        │ Status     │{Style.RESET_ALL}")
+    print(f"{header}├────────┼─────────────────────────────────────┼──────────┼────────┼──────┼──────────────────────┼────────────┤{Style.RESET_ALL}")
 
 
-def draw_table_row(register_data: Dict, result: Dict):
-    """Vykreslí jeden řádek tabulky s ultra-precízním zarovnáním"""
+def draw_table_row(register_data: Dict, result: Dict, last_values: Dict = None):
+    """Vykreslí jeden řádek tabulky s ultra-precízním zarovnáním a delta tracking"""
     reg_num = register_data.get('reg', 'N/A')
     name = register_data.get('name', 'Unknown')
     
@@ -677,6 +685,35 @@ def draw_table_row(register_data: Dict, result: Dict):
     # Padding na presne 33 znakov
     display_name = f"{display_name:<33}"
     
+    # Delta calculation
+    delta_str = ""
+    if result['ok'] and last_values is not None and reg_num in last_values:
+        current_val = result['scaled']
+        last_val = last_values[reg_num]
+        
+        if current_val != last_val:
+            # Detekuj typ hodnoty podle jednotky a rozsahu
+            is_binary = (current_val in [0.0, 1.0] and last_val in [0.0, 1.0])
+            is_temperature = "°C" in register_data.get('unit', '')
+            is_flow = "l/min" in register_data.get('unit', '') 
+            is_power = ("kW" in register_data.get('unit', '') or "W" in register_data.get('unit', ''))
+            
+            if is_binary:
+                delta_str = f"{last_val:.0f}→{current_val:.0f}"
+            else:
+                delta = current_val - last_val
+                if abs(delta) >= 0.01:
+                    if is_temperature:
+                        delta_str = f"{delta:+.1f}°C"
+                    elif is_power:
+                        unit_suffix = "kW" if "kW" in register_data.get('unit', '') else "W"
+                        format_str = "{:+.2f}" if "kW" in register_data.get('unit', '') else "{:+.0f}"
+                        delta_str = f"{format_str.format(delta)}{unit_suffix}"
+                    elif is_flow:
+                        delta_str = f"{delta:+.1f}l/min"
+                    else:
+                        delta_str = f"{delta:+.1f}"
+    
     if result['ok']:
         scaled_value = result['scaled']
         unit = register_data.get('unit', '')
@@ -684,14 +721,13 @@ def draw_table_row(register_data: Dict, result: Dict):
         
         color, style = get_color_for_value(register_data, scaled_value)
         
-        # ULTRA-PRESNÉ formátovanie - emoji-aware
+        # ULTRA-PRESNÉ formátovanie s delta sloupcem
         reg_part = f"{reg_str:>8}"                        # Presne 8 znakov
-        # display_name už má presne 35 ASCII znakov (bez emoji šírky)
         name_part = f" {display_name} "                   # Presne 37 znakov celkom
         
         # Value formatting
         if isinstance(scaled_value, float):
-            value_part = f"{scaled_value:>10.1f}"
+            value_part = f"{scaled_value:>10.2f}"
         elif isinstance(scaled_value, int):
             value_part = f"{scaled_value:>10d}"
         else:
@@ -699,6 +735,11 @@ def draw_table_row(register_data: Dict, result: Dict):
         
         unit_part = f" {unit:<6} "                        # Presne 8 znakov (s medzerami)
         raw_part = f"{raw_value:>6d}" if isinstance(raw_value, int) else f"{str(raw_value):>6}"
+        # Fixní šířka delta sloupce - 21 znaků celkem
+        if delta_str:
+            delta_part = f" {delta_str:<20}"  # Vlevo zarovnaná delta + padding na 20 znaků
+        else:
+            delta_part = f" {'--':<20}"  # Konzistentní šířka
         status_part = " OK         "                          # Presne 12 znakov
         
         # Farby - aplikujú sa len na časti bez medziery
@@ -708,6 +749,17 @@ def draw_table_row(register_data: Dict, result: Dict):
             value_colored = f"{color}{style}{value_part}{Style.RESET_ALL}"
             unit_colored = f" {Fore.YELLOW}{unit:<6}{Style.RESET_ALL} "
             raw_colored = f"{Fore.MAGENTA}{raw_part}{Style.RESET_ALL}"
+            
+            # Delta s farbami - FIXNÍ ŠÍŘKA 20 ZNAKŮ
+            if delta_str:
+                # Aplikuj barvy na samotný delta text
+                colored_delta = colorize_delta(delta_str, is_binary=(scaled_value in [0.0, 1.0]), is_temperature=('°C' in unit))
+                # Fixní padding - 20 mezer po colored textu
+                spaces_needed = max(0, 20 - len(delta_str))
+                delta_colored = f" {colored_delta}{' ' * spaces_needed}"
+            else:
+                delta_colored = f" {Fore.LIGHTBLACK_EX}{'--'}{' ' * 18}{Style.RESET_ALL}"
+            
             status_colored = f" {Fore.GREEN}✅ OK{Style.RESET_ALL}       "
         else:
             reg_colored = reg_part
@@ -715,10 +767,11 @@ def draw_table_row(register_data: Dict, result: Dict):
             value_colored = value_part
             unit_colored = unit_part
             raw_colored = raw_part
+            delta_colored = delta_part
             status_colored = status_part
         
         # Fixed layout - každá časť má pevnú pozíciu
-        line = f"│{reg_colored}│{name_colored}│{value_colored}│{unit_colored}│{raw_colored} │{status_colored}│"
+        line = f"│{reg_colored}│{name_colored}│{value_colored}│{unit_colored}│{raw_colored} │{delta_colored}│{status_colored}│"
         print(line)
         
     else:
@@ -730,6 +783,7 @@ def draw_table_row(register_data: Dict, result: Dict):
         value_part = "     ERROR"
         unit_part = "        "                             # 8 medzier
         raw_part = " ERR "
+        delta_part = f" {'--':<20}"                      # Konzistentní šířka 21 znaků
         status_part = " ERROR      "                           # 12 znakov
         
         if COLORAMA_AVAILABLE:
@@ -738,22 +792,25 @@ def draw_table_row(register_data: Dict, result: Dict):
             value_colored = f"{Fore.RED}{value_part}{Style.RESET_ALL}"
             unit_colored = f"{Fore.YELLOW}      {Style.RESET_ALL}  "
             raw_colored = f"{Fore.MAGENTA}{raw_part}{Style.RESET_ALL}"
-            status_colored = f" {Fore.RED}❌ ERR{Style.RESET_ALL}  "
+            delta_colored = f" {Fore.LIGHTBLACK_EX}{'--':<20}{Style.RESET_ALL}"
+            status_colored = f" {Fore.RED}❌ ERR{Style.RESET_ALL}      "
         else:
             reg_colored = reg_part
             name_colored = name_part
             value_colored = value_part
             unit_colored = unit_part
             raw_colored = raw_part
+            delta_colored = delta_part
             status_colored = status_part
         
-        line = f"│{reg_colored}│{name_colored}│{value_colored}│{unit_colored}│{raw_colored} │{status_colored}│"
+        # Error line s delta sloupcem
+        line = f"│{reg_colored}│{name_colored}│{value_colored}│{unit_colored}│{raw_colored} │{delta_colored}│{status_colored}│"
         print(line)
 
 
 def draw_table_footer(cop_value: Optional[float], total_registers: int, successful: int):
     """Vykreslí patičku tabulky se statistikami"""
-    print(f"{Fore.WHITE}{Style.BRIGHT}└────────┴───────────────────────────────────┴──────────┴────────┴──────┴────────────┘{Style.RESET_ALL}")
+    print(f"{Fore.WHITE}{Style.BRIGHT}└────────┴─────────────────────────────────────┴──────────┴────────┴──────┴──────────────────────┴────────────┘{Style.RESET_ALL}")
     
     # Statistiky
     success_rate = (successful / total_registers * 100) if total_registers > 0 else 0
@@ -762,125 +819,297 @@ def draw_table_footer(cop_value: Optional[float], total_registers: int, successf
     stats1 = f"🔥 COP: {cop_str} | 📊 Success: {successful}/{total_registers} ({success_rate:.1f}%)"
     stats2 = f"🎛️ Controls: Ctrl+C to quit | Auto refresh every few seconds"
     
-    print(f"{Fore.GREEN}{Style.BRIGHT}{'─' * 88}{Style.RESET_ALL}")
-    print(f"{Fore.GREEN}{stats1.center(88)}{Style.RESET_ALL}")
-    print(f"{Fore.YELLOW}{stats2.center(88)}{Style.RESET_ALL}")
-    print(f"{Fore.GREEN}{Style.BRIGHT}{'─' * 88}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}{Style.BRIGHT}{'─' * 108}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}{stats1.center(108)}{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}{stats2.center(108)}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}{Style.BRIGHT}{'─' * 108}{Style.RESET_ALL}")
     
     if not COLORAMA_AVAILABLE:
         print(f"\n{Fore.YELLOW}💡 Tip: Pro barvy nainstalujte colorama: pip install colorama{Style.RESET_ALL}")
 
 
-def table_monitor(config: Dict, interval: int, csv_file: Optional[Path] = None, 
-                 log_file: Optional[Path] = None):
+def simple_monitor(config: Dict, interval: int, csv_file: Optional[Path] = None, 
+                  log_file: Optional[Path] = None):
     """
-    Spustí monitoring v režimu dynamické tabulky.
+    Jednoduchý monitoring režim - čistý textový výpis všech registrů najednou.
     """
-    print(f"🖥️ Spouštím Table Monitor...")
+    print("🖥️ Spouštím Simple Monitor...")
     print(f"📡 Připojuji k {config['connection']['host']}:{config['connection']['port']}")
     
-    if COLORAMA_AVAILABLE:
-        print(f"{Fore.GREEN}✅ Colorama je dostupná - budou zobrazeny barvy{Style.RESET_ALL}")
-    else:
-        print(f"{Fore.YELLOW}⚠️  Colorama není nainstalována - bez barev{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}💡 Pro barvy: pip install colorama{Style.RESET_ALL}")
-    
-    time.sleep(2)
-    
-    # Připojení k Modbus serveru
+    # Připojení k Modbus s delším timeout
     client = ModbusTcpClient(
         host=config['connection']['host'],
         port=config['connection']['port'],
-        timeout=config['connection']['timeout']
+        timeout=10  # Zvýšený timeout na 10 sekund
     )
     
     if not client.connect():
-        print(f"{Fore.RED}❌ Připojení selhalo!{Style.RESET_ALL}")
+        print("❌ Připojení selhalo!")
         return
     
-    print(f"{Fore.GREEN}✅ Připojen k Modbus serveru{Style.RESET_ALL}")
-    time.sleep(1)
+    print("✅ Připojen k Modbus serveru")
+    print(f"📊 Celkem {len(config['registers'])} registrů")
+    print("💡 Stiskněte Ctrl+C pro ukončení\n")
     
-    iteration = 1
-    previous_values = {}
+    # Vyčištění obrazovky jen jednou na začátku
+    clear_screen()
+    
+    iteration = 0
+    previous_values = {}  # Sledování předchozích hodnot pro delta
     
     try:
         while True:
-            clear_screen()
+            iteration += 1
             
-            # Čtení všech registrů
+            # ANSI pozicionování kurzoru na začátek (kromě první iterace)
+            if iteration > 1:
+                print("\033[2J\033[H", end="")  # Vymaž celou obrazovku + kurzor na pozíciu 0,0
+            
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print("🖥️ LG Therma V Simple Monitor")
+            print("=" * 70)
+            print(f"📅 {timestamp} | Iterace #{iteration}")
+            print(f"📊 Celkem {len(config['registers'])} registrů")
+            print("=" * 70)
+            
+            # Načti všechny registry
             results = []
             successful = 0
+            iteration_results = {}
             
             for register_data in config['registers']:
                 result = read_register_value(client, register_data, config['connection']['unit'])
                 results.append((register_data, result))
+                
                 if result['ok']:
                     successful += 1
+                    reg_num = register_data.get('reg')
+                    iteration_results[reg_num] = result
             
-            # Výpočet COP
-            cop_value = None
-            try:
-                # Najdi teploty a elektrický výkon
-                outlet_temp = None
-                inlet_temp = None
-                electrical_power = None
-                
-                for register_data, result in results:
-                    if result['ok'] and register_data.get('reg') == 30004:  # Outlet temp
-                        outlet_temp = result['scaled']
-                    elif result['ok'] and register_data.get('reg') == 30003:  # Inlet temp
-                        inlet_temp = result['scaled']
-                    elif result['ok'] and register_data.get('reg') == 40018:  # Electrical power
-                        electrical_power = result['scaled']
-                
-                if (outlet_temp is not None and inlet_temp is not None and 
-                    electrical_power is not None and electrical_power > 0.1):
-                    temp_delta = abs(outlet_temp - inlet_temp)
-                    if temp_delta >= 0.05:  # Minimální delta
-                        flow_rate = 27.5  # l/min (z kalibrace)
-                        thermal_power = flow_rate * 4.18 * temp_delta / 60  # kW
-                        cop_value = max(0.1, min(25.0, thermal_power / electrical_power))
-            except:
-                pass
+            # COP výpočet
+            cop_value = calculate_cop(iteration_results)
             
-            # Vykreslení tabulky
-            draw_table_header("LG Therma V Monitor", iteration)
-            
+            # Výpis všech registrů najednou
             for register_data, result in results:
-                draw_table_row(register_data, result)
+                reg_num = register_data.get('reg')
+                name = register_data.get('name', 'Unknown')
+                unit = register_data.get('unit', '')
+                
+                if result['ok']:
+                    value = result['scaled']
+                    
+                    # Výpočet delta
+                    delta_str = ""
+                    if iteration > 1 and reg_num in previous_values:
+                        prev_val = previous_values[reg_num]
+                        if isinstance(value, (int, float)) and isinstance(prev_val, (int, float)):
+                            delta = value - prev_val
+                            if abs(delta) >= 0.1:
+                                if delta > 0:
+                                    delta_str = f" (+{delta:.1f})"
+                                else:
+                                    delta_str = f" ({delta:.1f})"
+                        elif value != prev_val:
+                            delta_str = " (změna)"
+                    
+                    # Formátování hodnoty
+                    if isinstance(value, float):
+                        value_str = f"{value:.2f}"
+                    else:
+                        value_str = str(value)
+                    
+                    # Výpis řádku s odsazením
+                    if unit:
+                        print(f"  {reg_num:>5}: {name:<40} {value_str:>10} {unit:<8}{delta_str}")
+                    else:
+                        print(f"  {reg_num:>5}: {name:<40} {value_str:>10}{delta_str}")
+                    
+                    # Uložit hodnotu pro příští iteraci
+                    previous_values[reg_num] = value
+                else:
+                    print(f"  {reg_num:>5}: {name:<40} ERROR")
             
-            draw_table_footer(cop_value, len(config['registers']), successful)
+            # Statistiky
+            print("=" * 70)
+            success_rate = (successful / len(config['registers']) * 100) if len(config['registers']) > 0 else 0
+            print(f"📊 Úspěšnost: {successful}/{len(config['registers'])} ({success_rate:.1f}%)")
             
-            # Flush output for smoother display
-            sys.stdout.flush()
+            if cop_value:
+                print(f"🔥 COP: {cop_value:.2f}")
+            else:
+                print("🔥 COP: N/A")
             
-            # CSV zápis (pokud je požadován)
+            # CSV zápis
             if csv_file:
-                # Zapíšeme hlavičku pouze při první iteraci
                 if iteration == 1:
                     write_csv_header(csv_file)
-                
-                # Zapíšeme všechny řádky
                 for register_data, result in results:
                     write_csv_row(csv_file, result, cop_value)
             
-            # Log zápis (pokud je požadován)
+            # Log zápis
             if log_file:
                 write_results_to_log(results, log_file, iteration, cop_value)
             
-            time.sleep(interval)
-            iteration += 1
+            print(f"\n⏰ Další aktualizace za {interval}s | Ctrl+C pro ukončení")
+            
+            # Jednoduchý countdown
+            for i in range(interval, 0, -1):
+                print(f"\r⏳ Čekám {i}s...     ", end="", flush=True)
+                time.sleep(1)
+            print("\r" + " " * 20 + "\r", end="")  # Vymaž countdown
             
     except KeyboardInterrupt:
-        clear_screen()
-        print(f"{Fore.GREEN}{Style.BRIGHT}✅ Table Monitor ukončen uživatelem!{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}👋 Děkujeme za použití LG Therma V Monitor!{Style.RESET_ALL}")
+        print("\n\n✅ Simple Monitor ukončen uživatelem!")
+    except Exception as e:
+        print(f"\n❌ Chyba: {e}")
     finally:
         client.close()
+        print("👋 Odpojeno od Modbus serveru")
 
 
-def simple_monitor(config: Dict, interval: int, csv_file: Optional[Path] = None, 
+def draw_simple_table_header(title: str, iteration: int):
+    """Vykreslí hlavičku simple tabulky"""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    full_title = f"🏠 {title} - Iteration {iteration}"
+    subtitle = f"📅 {timestamp} | 🖥️ Simple Mode"
+    
+    print(f"{Fore.CYAN}{Style.BRIGHT}{'═' * 100}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}{Style.BRIGHT}{full_title.center(100)}{Style.RESET_ALL}")
+    print(f"{Fore.MAGENTA}{subtitle.center(100)}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}{Style.BRIGHT}{'═' * 100}{Style.RESET_ALL}")
+    
+    header = f"{Fore.WHITE}{Style.BRIGHT}"
+    print(f"{header}┌────────┬─────────────────────────────────────┬──────────┬────────┬──────────┬────────────┐{Style.RESET_ALL}")
+    print(f"{header}│Register│ Parameter                           │ Value    │ Unit   │ Delta    │ Status     │{Style.RESET_ALL}")
+    print(f"{header}├────────┼─────────────────────────────────────┼──────────┼────────┼──────────┼────────────┤{Style.RESET_ALL}")
+
+
+def draw_simple_table_row(register_data: Dict, result: Dict, previous_value=None):
+    """Vykreslí jeden řádek simple tabulky"""
+    reg_num = register_data.get('reg', 'N/A')
+    name = register_data.get('name', 'Unknown')
+    
+    # Formátování registru
+    if isinstance(reg_num, int):
+        if reg_num < 10:
+            reg_str = f"{reg_num:05d}"
+        else:
+            reg_str = str(reg_num)
+    else:
+        reg_str = str(reg_num)
+    
+    # Zkrátit jméno pokud je příliš dlouhé
+    display_name = name
+    if len(display_name) > 33:
+        display_name = display_name[:30] + "..."
+    
+    display_name = f"{display_name:<33}"
+    
+    if result['ok']:
+        scaled_value = result['scaled']
+        unit = register_data.get('unit', '')
+        
+        color, style = get_color_for_value(register_data, scaled_value)
+        
+        # Výpočet delta
+        delta_str = "    -    "
+        if previous_value is not None:
+            if isinstance(scaled_value, (int, float)) and isinstance(previous_value, (int, float)):
+                delta = scaled_value - previous_value
+                if abs(delta) >= 0.1:
+                    if delta > 0:
+                        delta_str = f"{delta:+7.1f}⬆"
+                    else:
+                        delta_str = f"{delta:+7.1f}⬇"
+                else:
+                    delta_str = "    =    "
+            elif scaled_value != previous_value:
+                delta_str = "  ZMĚNA "
+        
+        # Formátování částí
+        reg_part = f"{reg_str:>8}"
+        name_part = f" {display_name} "
+        
+        if isinstance(scaled_value, float):
+            value_part = f"{scaled_value:>10.2f}"
+        elif isinstance(scaled_value, int):
+            value_part = f"{scaled_value:>10d}"
+        else:
+            value_part = f"{str(scaled_value):>10}"
+        
+        unit_part = f" {unit:<6} "
+        delta_part = f"{delta_str:>10}"
+        
+        # Barvy
+        if COLORAMA_AVAILABLE:
+            reg_colored = f"{Fore.CYAN}{reg_part}{Style.RESET_ALL}"
+            name_colored = f" {Fore.WHITE}{display_name}{Style.RESET_ALL} "
+            value_colored = f"{color}{style}{value_part}{Style.RESET_ALL}"
+            unit_colored = f" {Fore.YELLOW}{unit:<6}{Style.RESET_ALL} "
+            
+            # Delta barvy
+            if "⬆" in delta_str:
+                delta_colored = f" {Fore.GREEN}{delta_part}{Style.RESET_ALL}"
+            elif "⬇" in delta_str:
+                delta_colored = f" {Fore.RED}{delta_part}{Style.RESET_ALL}"
+            else:
+                delta_colored = f" {Fore.WHITE}{delta_part}{Style.RESET_ALL}"
+            
+            status_colored = f" {Fore.GREEN}✅ OK{Style.RESET_ALL}       "
+        else:
+            reg_colored = reg_part
+            name_colored = name_part
+            value_colored = value_part
+            unit_colored = unit_part
+            delta_colored = f" {delta_part}"
+            status_colored = " OK         "
+        
+        line = f"│{reg_colored}│{name_colored}│{value_colored}│{unit_colored}│{delta_colored}│{status_colored}│"
+        print(line)
+        
+    else:
+        # Error formatting
+        reg_part = f"{reg_str:>8}"
+        name_part = f" {display_name} "
+        value_part = "     ERROR"
+        unit_part = "        "
+        delta_part = "   ERR    "
+        
+        if COLORAMA_AVAILABLE:
+            reg_colored = f"{Fore.CYAN}{reg_part}{Style.RESET_ALL}"
+            name_colored = f" {Fore.WHITE}{display_name}{Style.RESET_ALL} "
+            value_colored = f"{Fore.RED}{value_part}{Style.RESET_ALL}"
+            unit_colored = f"{Fore.YELLOW}      {Style.RESET_ALL}  "
+            delta_colored = f" {Fore.RED}{delta_part}{Style.RESET_ALL}"
+            status_colored = f" {Fore.RED}❌ ERR{Style.RESET_ALL}   "
+        else:
+            reg_colored = reg_part
+            name_colored = name_part
+            value_colored = value_part
+            unit_colored = unit_part
+            delta_colored = f" {delta_part}"
+            status_colored = " ERROR      "
+        
+        line = f"│{reg_colored}│{name_colored}│{value_colored}│{unit_colored}│{delta_colored}│{status_colored}│"
+        print(line)
+
+
+def draw_simple_table_footer(cop_value: Optional[float], total_registers: int, successful: int):
+    """Vykreslí patičku simple tabulky"""
+    print(f"{Fore.WHITE}{Style.BRIGHT}└────────┴─────────────────────────────────────┴──────────┴────────┴──────────┴────────────┘{Style.RESET_ALL}")
+    
+    # Statistiky
+    success_rate = (successful / total_registers * 100) if total_registers > 0 else 0
+    cop_str = f"{cop_value:.2f}" if cop_value else "N/A"
+    
+    stats1 = f"🔥 COP: {cop_str} | 📊 Success: {successful}/{total_registers} ({success_rate:.1f}%)"
+    
+    print(f"{Fore.GREEN}{Style.BRIGHT}{'─' * 100}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}{stats1.center(100)}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}{Style.BRIGHT}{'─' * 100}{Style.RESET_ALL}")
+
+
+def simple_monitor_old(config: Dict, interval: int, csv_file: Optional[Path] = None, 
                   log_file: Optional[Path] = None):
     """
     Jednoduchý monitoring režim - zobrazuje jen hlavní hodnoty bez blikání.
@@ -1127,7 +1356,7 @@ def smooth_table_monitor(config: Dict, interval: int, csv_file: Optional[Path] =
     print(f"{Fore.GREEN}✅ Připojen k Modbus serveru{Style.RESET_ALL}")
     print(f"\n{Fore.CYAN}🚀 Spouštím plynulý monitoring...{Style.RESET_ALL}")
     print(f"{Fore.BLUE}💡 Stiskněte Ctrl+C pro ukončení{Style.RESET_ALL}")
-    time.sleep(2)
+    # Odebráno time.sleep(2) pro rychlejší start
     
     # Vyčištění obrazovky jen jednou na začátku
     import os
@@ -1135,14 +1364,17 @@ def smooth_table_monitor(config: Dict, interval: int, csv_file: Optional[Path] =
     
     iteration = 0
     first_run = True
+    last_values = {}  # Delta tracking pro smooth mode
     
     try:
         while True:
             iteration += 1
             
-            # ANSI pozicionování kurzoru ak nie je prvý run
+            # ANSI pozicionování kurzoru - optimalizované pro snížení blikání
             if not first_run:
-                print("\033[H", end="")  # Kurzor na pozíciu 0,0
+                # Vymaž pouze progress řádek a přeskoč na začátek
+                print("\r\033[K", end="")  # Vymaže aktuální řádek
+                print("\033[H", end="")    # Kurzor na pozici 0,0
             
             # Načti všetky data najprv (bez vykreslovanja)
             results = []
@@ -1166,9 +1398,9 @@ def smooth_table_monitor(config: Dict, interval: int, csv_file: Optional[Path] =
             # Header
             draw_table_header("LG Therma V Smooth Monitor", iteration)
             
-            # Všetky data riadky naraz
+            # Všetky data riadky naraz s delta tracking
             for register_data, result in results:
-                draw_table_row(register_data, result)
+                draw_table_row(register_data, result, last_values)
             
             # Footer
             draw_table_footer(cop_value, len(config['registers']), successful)
@@ -1189,17 +1421,26 @@ def smooth_table_monitor(config: Dict, interval: int, csv_file: Optional[Path] =
             if log_file:
                 write_results_to_log(results, log_file, iteration, cop_value)
             
+            # Update last_values pro delta tracking
+            for register_data, result in results:
+                if result['ok']:
+                    reg_num = register_data.get('reg')
+                    last_values[reg_num] = result['scaled']
+            
             first_run = False
             
-            # Čekání s progress indikátorem
-            for i in range(interval):
+            # Čekání s optimalizovaným progress indikátorem
+            for i in range(0, interval, 2):  # Progress co 2 sekundy
                 remaining = interval - i
-                progress = "⏳ Aktualizace za " + "█" * (interval - remaining) + "░" * remaining + f" {remaining}s"
-                print(f'\r{Fore.BLUE}{progress}{Style.RESET_ALL}', end='', flush=True)
-                time.sleep(1)
+                if remaining > 0:
+                    progress_filled = min(interval - remaining, interval)
+                    progress_empty = max(0, interval - progress_filled)
+                    progress = "⏳ Aktualizace za " + "█" * progress_filled + "░" * progress_empty + f" {remaining}s"
+                    print(f'\r{Fore.BLUE}{progress}{Style.RESET_ALL}', end='', flush=True)
+                    time.sleep(min(2, remaining))  # Čekej max 2 sekundy
             
-            # Vymaž progress řádek
-            print(f'\r{" " * 60}\r', end='')
+            # Vymaž progress řádek - optimalizované
+            print(f'\r{" " * 80}\r', end='', flush=True)
             
     except KeyboardInterrupt:
         print(f"\n\n{Fore.GREEN}✅ Smooth Monitor ukončen uživatelem!{Style.RESET_ALL}")
@@ -1227,10 +1468,8 @@ Příklady použití:
                        version=f'LG Therma V Monitor v{__version__}')
     parser.add_argument('--once', action='store_true',
                        help='Provede pouze jeden průchod')
-    parser.add_argument('--interval', type=int, default=60,
-                       help='Interval mezi průchody v sekundách (default: 60)')
-    parser.add_argument('--table', action='store_true',
-                       help='Zobrazí data v dynamické tabulce místo běžného výpisu')
+    parser.add_argument('--interval', type=int, default=10,
+                       help='Interval mezi průchody v sekundách (default: 10)')
     parser.add_argument('--smooth', action='store_true',
                        help='Zobrazí data v plynulé tabulce bez blikání (doporučeno)')
     parser.add_argument('--simple', action='store_true',
@@ -1275,11 +1514,6 @@ Příklady použití:
         if args.once:
             print("⚠️ --once je ignorován v smooth režimu")
         smooth_table_monitor(config, args.interval, args.out, args.log)
-    elif args.table:
-        print("Režim: Dynamická tabulka (s blikáním)")
-        if args.once:
-            print("⚠️ --once je ignorován v table režimu")
-        table_monitor(config, args.interval, args.out, args.log)
     elif args.simple:
         print("Režim: Jednoduché zobrazení")
         if args.once:
