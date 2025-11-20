@@ -2,7 +2,7 @@
 
 **Verze:** 2.1.2 | **Model:** HU091MR.U44 | **Status:** ✅ Production Ready
 
-🏠 **Pokročilý monitoring tool pro LG Therma V tepelná čerpadla**
+🏠 **Monitoring tool pro LG Therma V tepelná čerpadla**
 
 Komplexní implementace Modbus registrů pro tepelné čerpadlo LG Therma V s pokročilým monitoringem, delta trackingem a COP výpočty. Všechny registry jsou ověřené proti skutečnosti a kalibrované pro přesné zobrazení hodnot.
 
