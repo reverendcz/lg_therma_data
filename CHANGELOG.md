@@ -8,12 +8,19 @@ a tento projekt dodržuje [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [2.1.2] - 2025-11-20
 
 ### Přidáno
-- **Nové diagnostické registry:** 4 nové registry pro kompletnější monitoring
+- **Nové diagnostické registry:** 5 nových registrů pro kompletnější monitoring
   - `30019` Suction Temperature - teplota sání kompresoru (diagnostika)
   - `30020` Inverter Discharge Temperature - teplota výstupu invertoru (servisní údaj)
   - `30021` Heat Exchanger Temperature - teplota výměníku tepla (diagnostika systému)
   - `30023` High Pressure (Refrigerant) - vysoký tlak chladiva (diagnostika kompresoru)
   - `30024` Low Pressure (Refrigerant) - nízký tlak chladiva (diagnostika okruhu)
+  - `30025` Inverter Frequency - frekvence invertoru kompresoru (0=vypnuto, 30-50 Hz normál, až 75 Hz max)
+- **Nástroje pro objevování registrů:** Vytvořeny pokročilé scanner nástroje pro mapování Modbus registrů
+  - `scanner/input_register_scanner.py` - automatické skenování Input registrů (3xxxx)
+  - `scanner/holding_scanner.py` - rychlé skenování Holding registrů (4xxxx)  
+  - `scanner/register_monitor.py` - real-time monitoring objevených registrů s detekcí změn
+  - `scanner/inverter_monitor.py` - specializovaný monitor frekvence invertoru
+- **Kompletní registry mapping:** Definitivní zmapování LG Therma V systému - 39 přístupných registrů identifikováno
 
 ### Opraveno
 - **Kritická oprava cílových teplot:** Opraveno čtení uživatelem nastavených teplot z ovladače
@@ -22,11 +29,26 @@ a tento projekt dodržuje [Semantic Versioning](https://semver.org/spec/v2.0.0.h
   - Nyní správně zobrazuje cílové teploty nastavené uživatelem na ovladači
   - 40003 nyní čte 25°C místo 0°C, 40009 nyní čte 45°C místo 23.6°C
 
+### Testováno a ověřeno
+- **Registr 30025:** Ověřena funkčnost frekvence invertoru pomocí real-time testů
+  - Test 1: Normální provoz (38 Hz)
+  - Test 2: Zvýšení teploty (38 → 41 → 48 Hz)
+  - Test 3: Vypnutí systému (48 → 0 Hz)
+- **Scanner nástroje:** Kompletní prohledání registrových rozsahů
+  - 30001-30025: 25 funkčních Input registrů
+  - 30026-30120: Prázdné rozsahy potvrzeny
+  - 40001-40023: 23 Holding registrů (většina prázdných)
+  - 40063-40064: 2 diagnostické registry
+  - Definitivní zjištění: Pouze registr 30018 poskytuje energetická data
+
 ### Technické detaily
 - **Holding vs Input registr problém:** Cílové teploty jsou WRITE hodnoty → musí být `holding`
 - **Registry tlaků chladiva:** Poskytují diagnostiku zdraví kompresoru a chladicího okruhu
 - **Teploty kompresoru:** Umožňují monitoring přehřátí a výkonnosti invertoru
-- **Celkem registrů:** Navýšeno z 41 na 45 aktivních registrů pro lepší diagnostiku
+- **Inverter frekvence monitoring:** Klíčová metrika pro sledování zatížení kompresoru v reálném čase
+- **Registry scanning optimalizace:** Timeout optimalizace z 2.0s na 0.5s pro efektivní objevování
+- **Celkem registrů:** Navýšeno z 41 na 46 aktivních registrů pro maximální diagnostiku
+- **Kompletní mapping:** LG Therma V má pouze 39 přístupných registrů - žádná skrytá energetická data nejsou dostupná
 
 ## [2.1.1] - 2025-11-20
 

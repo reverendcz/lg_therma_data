@@ -34,9 +34,12 @@ backup_*.yaml
 # Kalibrační archiv (obsahuje testovací data)
 calibration_archive/
 
+# Scanner adresář (testovací a vývojové skripty)
+scanner/
+
 # Dočasné soubory a tmp adresář
 docs/tmp/
-tmp/
+tmp/*.*
 
 # IDE
 .vscode/

@@ -145,6 +145,13 @@ registers:
     unit: "mBar"
     comment: "Nízký tlak chladiva - diagnostika okruhu"
 
+  - name: "Inverter Frequency"
+    reg: 30025              
+    table: input
+    scale: 1
+    unit: "Hz"
+    comment: "Frekvence invertoru kompresoru (0=vypnuto, 30-50 Hz normál, až 75 Hz max)"
+
   - name: "Suction Temperature"
     reg: 30019              
     table: input
