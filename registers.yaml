@@ -38,10 +38,10 @@ registers:
 
   - name: "Target Temperature Heating/Cooling Circuit 1"
     reg: 40003              
-    table: input
+    table: holding
     scale: 0.1              
     unit: "°C"
-    comment: "Cílová teplota topení/chlazení okruh 1"
+    comment: "Cílová teplota topení/chlazení okruh 1 - HOLDING registr!"
 
   - name: "Room Air Temperature Circuit 1"
     reg: 30008              
@@ -73,10 +73,10 @@ registers:
 
   - name: "DHW Target Temperature"
     reg: 40009              
-    table: input
+    table: holding
     scale: 0.1              
     unit: "°C"
-    comment: "Cílová teplota TUV"
+    comment: "Cílová teplota TUV - HOLDING registr!"
 
   - name: "Backup Heater Outlet Temperature"
     reg: 30005              
@@ -131,19 +131,40 @@ registers:
     unit: "Bar"
     comment: "Tlak výparníku - z HA konfigurace"
 
-  - name: "Compressor Pressure"
+  - name: "High Pressure (Refrigerant)"
     reg: 30023              
     table: input
     scale: 1
-    unit: "Bar"
-    comment: "Tlak kompresoru - z HA konfigurace"
+    unit: "mBar"
+    comment: "Vysoký tlak chladiva - diagnostika kompresoru"
 
-  - name: "Compressor RPM"
+  - name: "Low Pressure (Refrigerant)"
     reg: 30024              
     table: input
-    scale: 60
-    unit: "rpm"
-    comment: "Otáčky kompresoru - z HA konfigurace"
+    scale: 1
+    unit: "mBar"
+    comment: "Nízký tlak chladiva - diagnostika okruhu"
+
+  - name: "Suction Temperature"
+    reg: 30019              
+    table: input
+    scale: 0.1
+    unit: "°C"
+    comment: "Teplota sání kompresoru - interní diagnostika"
+
+  - name: "Inverter Discharge Temperature"
+    reg: 30020              
+    table: input
+    scale: 0.1
+    unit: "°C"
+    comment: "Teplota výstupu invertoru - servisní údaj"
+
+  - name: "Heat Exchanger Temperature"
+    reg: 30021              
+    table: input
+    scale: 0.1
+    unit: "°C"
+    comment: "Teplota výměníku tepla - diagnostika systému"
 
   # - name: "Compressor Modulation"
   #   reg: 40011              

@@ -5,6 +5,29 @@ Všechny významné změny v LG Therma V monitoring systému budou dokumentován
 Formát je založen na [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 a tento projekt dodržuje [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.2] - 2025-11-20
+
+### Přidáno
+- **Nové diagnostické registry:** 4 nové registry pro kompletnější monitoring
+  - `30019` Suction Temperature - teplota sání kompresoru (diagnostika)
+  - `30020` Inverter Discharge Temperature - teplota výstupu invertoru (servisní údaj)
+  - `30021` Heat Exchanger Temperature - teplota výměníku tepla (diagnostika systému)
+  - `30023` High Pressure (Refrigerant) - vysoký tlak chladiva (diagnostika kompresoru)
+  - `30024` Low Pressure (Refrigerant) - nízký tlak chladiva (diagnostika okruhu)
+
+### Opraveno
+- **Kritická oprava cílových teplot:** Opraveno čtení uživatelem nastavených teplot z ovladače
+  - `40003` Target Temperature Heating/Cooling: `table: input` → `table: holding`
+  - `40009` DHW Target Temperature: `table: input` → `table: holding`
+  - Nyní správně zobrazuje cílové teploty nastavené uživatelem na ovladači
+  - 40003 nyní čte 25°C místo 0°C, 40009 nyní čte 45°C místo 23.6°C
+
+### Technické detaily
+- **Holding vs Input registr problém:** Cílové teploty jsou WRITE hodnoty → musí být `holding`
+- **Registry tlaků chladiva:** Poskytují diagnostiku zdraví kompresoru a chladicího okruhu
+- **Teploty kompresoru:** Umožňují monitoring přehřátí a výkonnosti invertoru
+- **Celkem registrů:** Navýšeno z 41 na 45 aktivních registrů pro lepší diagnostiku
+
 ## [2.1.1] - 2025-11-20
 
 ### Opraveno
