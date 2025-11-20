@@ -38,7 +38,7 @@ registers:
 
   - name: "Target Temperature Heating/Cooling Circuit 1"
     reg: 40003              
-    table: holding
+    table: input
     scale: 0.1              
     unit: "°C"
     comment: "Cílová teplota topení/chlazení okruh 1"
@@ -52,14 +52,14 @@ registers:
 
   - name: "Room Air Temperature Circuit 1"
     reg: 40004              
-    table: holding
+    table: input
     scale: 0.1              
     unit: "°C"
     comment: "Pokojová teplota okruh 1 (holding)"
 
   - name: "Shift Value Target Auto Mode Circuit 1"
     reg: 40005              
-    table: holding
+    table: input
     scale: 0.1              
     unit: "°C"
     comment: "Posun hodnoty auto režim okruh 1"
@@ -73,7 +73,7 @@ registers:
 
   - name: "DHW Target Temperature"
     reg: 40009              
-    table: holding
+    table: input
     scale: 0.1              
     unit: "°C"
     comment: "Cílová teplota TUV"
@@ -110,19 +110,19 @@ registers:
     unit: "l/min"
     comment: "Aktuální průtok vody"
 
-  - name: "Water Pressure"
-    reg: 30014              
-    table: input
-    scale: 0.1              
-    unit: "bar"
-    comment: "Tlak vody (input registr)"
+  # - name: "Water Pressure"
+  #   reg: 30014              
+  #   table: input
+  #   scale: 0.018
+  #   unit: "bar"
+  #   comment: "DOČASNĚ ZAKOMENTOVÁNO - možný konflikt s 40013"
 
   - name: "Water Pressure"
     reg: 40013              
-    table: holding
-    scale: 0.1
+    table: input
+    scale: 0.018
     unit: "bar"
-    comment: "Tlak vody (holding registr) - validovaný"
+    comment: "Tlak vody (holding registr) - kalibrováno podle modbus_tcp.py"
 
   - name: "Evaporator Pressure"
     reg: 30022              
